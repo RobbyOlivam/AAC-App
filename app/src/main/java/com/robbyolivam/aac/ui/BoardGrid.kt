@@ -1,0 +1,279 @@
+package com.robbyolivam.aac.ui
+
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.robbyolivam.aac.core.Board
+import com.robbyolivam.aac.core.Cell
+import com.robbyolivam.aac.core.CellAction
+import com.robbyolivam.aac.data.MediaFiles
+import com.robbyolivam.aac.data.Settings
+import com.robbyolivam.aac.ui.theme.OnWordColor
+import com.robbyolivam.aac.ui.theme.wordColor
+
+/**
+ * Touch handling tuned for motor access: optional hold time (ignore brushes), select on
+ * press or on release, and long-press for word forms when no hold time is set.
+ */
+fun Modifier.aacSelectable(
+    holdTimeMs: Int,
+    acceptOnRelease: Boolean,
+    onPressedChange: (Boolean) -> Unit,
+    onSelect: () -> Unit,
+    onLongPress: () -> Unit,
+): Modifier = pointerInput(holdTimeMs, acceptOnRelease) {
+    awaitEachGesture {
+        awaitFirstDown(requireUnconsumed = false)
+        onPressedChange(true)
+        try {
+            if (holdTimeMs <= 0 && !acceptOnRelease) {
+                onSelect()
+                waitForUpOrCancellation()
+                return@awaitEachGesture
+            }
+            val timeout = if (holdTimeMs > 0) holdTimeMs.toLong() else viewConfiguration.longPressTimeoutMillis
+            var released = false
+            val endedEarly = withTimeoutOrNull(timeout) {
+                val up = waitForUpOrCancellation()
+                if (up != null) {
+                    up.consume()
+                    released = true
+                }
+            } != null
+            if (endedEarly) {
+                // With a hold time, a quick tap is treated as an accidental touch.
+                if (released && holdTimeMs <= 0) onSelect()
+                return@awaitEachGesture
+            }
+            if (holdTimeMs > 0) {
+                if (acceptOnRelease) {
+                    if (waitForUpOrCancellation() != null) onSelect()
+                } else {
+                    onSelect()
+                    waitForUpOrCancellation()
+                }
+            } else {
+                onLongPress()
+                waitForUpOrCancellation()
+            }
+        } finally {
+            onPressedChange(false)
+        }
+    }
+}
+
+@Composable
+fun BoardGrid(
+    board: Board,
+    settings: Settings,
+    editMode: Boolean,
+    highlightIndex: Int?,
+    movingIndex: Int?,
+    media: MediaFiles,
+    onSelect: (Int, Cell?) -> Unit,
+    onLongPress: (Cell?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier.padding(2.dp)) {
+        for (row in 0 until board.rows) {
+            Row(Modifier.weight(1f).fillMaxWidth()) {
+                for (col in 0 until board.cols) {
+                    val index = row * board.cols + col
+                    val cell = board.cells[index]
+                    CellButton(
+                        cell = cell,
+                        settings = settings,
+                        editMode = editMode,
+                        highlighted = highlightIndex == index,
+                        moving = movingIndex == index,
+                        media = media,
+                        onSelect = { onSelect(index, cell) },
+                        onLongPress = { onLongPress(cell) },
+                        modifier = Modifier.weight(1f).fillMaxHeight().padding(2.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CellButton(
+    cell: Cell?,
+    settings: Settings,
+    editMode: Boolean,
+    highlighted: Boolean,
+    moving: Boolean,
+    media: MediaFiles,
+    onSelect: () -> Unit,
+    onLongPress: () -> Unit,
+    modifier: Modifier = Modifier,
+    compact: Boolean = false,
+) {
+    val visible = cell != null && (!cell.hidden || editMode)
+    if (!visible && !editMode) {
+        Box(modifier)
+        return
+    }
+    val haptics = LocalHapticFeedback.current
+    val currentOnSelect by rememberUpdatedState(onSelect)
+    val currentOnLongPress by rememberUpdatedState(onLongPress)
+    val hapticsOn by rememberUpdatedState(settings.haptics)
+    var pressed by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(10.dp)
+    val background = when {
+        cell == null -> MaterialTheme.colorScheme.surface.copy(alpha = 0.4f)
+        else -> wordColor(cell.type)
+    }
+    val pulse = if (highlighted) {
+        val transition = rememberInfiniteTransition(label = "guide")
+        transition.animateFloat(0.3f, 1f, infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "pulse").value
+    } else {
+        0f
+    }
+    val borderColor = when {
+        highlighted -> MaterialTheme.colorScheme.primary.copy(alpha = pulse)
+        moving -> MaterialTheme.colorScheme.secondary
+        cell == null -> MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+        else -> Color.Black.copy(alpha = 0.25f)
+    }
+    val borderWidth = if (highlighted || moving) 4.dp else 1.dp
+    val label = cell?.label ?: "Empty"
+
+    Box(
+        modifier
+            .scale(if (pressed) 0.94f else 1f)
+            .clip(shape)
+            .background(background)
+            .border(borderWidth, borderColor, shape)
+            .alpha(if (cell?.hidden == true) 0.4f else 1f)
+            .aacSelectable(
+                holdTimeMs = if (editMode) 0 else settings.holdTimeMs,
+                acceptOnRelease = editMode || settings.acceptOnRelease,
+                onPressedChange = { pressed = it },
+                onSelect = {
+                    if (hapticsOn) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    currentOnSelect()
+                },
+                onLongPress = {
+                    if (hapticsOn) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    currentOnLongPress()
+                },
+            )
+            .semantics {
+                role = Role.Button
+                contentDescription = if (cell?.action == CellAction.FOLDER) "$label folder" else label
+                onClick { currentOnSelect(); true }
+                onLongClick { currentOnLongPress(); true }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (cell == null) {
+            Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.outline)
+            return@Box
+        }
+        if (cell.action == CellAction.FOLDER) {
+            // Folder tab, so folders read differently from words at a glance.
+            Box(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = 6.dp)
+                    .size(width = 22.dp, height = 5.dp)
+                    .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(bottomStart = 3.dp, bottomEnd = 3.dp)),
+            )
+        }
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = 2.dp, vertical = 3.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                val imagePath = cell.symbol.imagePath
+                val image = remember(imagePath) { imagePath?.let { media.load(it) } }
+                when {
+                    image != null -> Image(
+                        bitmap = image,
+                        contentDescription = null,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(6.dp)),
+                    )
+                    !cell.symbol.emoji.isNullOrBlank() -> {
+                        val size = with(LocalDensity.current) { (minOf(maxHeight, maxWidth) * 0.72f).toSp() }
+                        Text(cell.symbol.emoji!!, fontSize = size, lineHeight = size, textAlign = TextAlign.Center)
+                    }
+                    !settings.showLabels -> Text(cell.label, color = OnWordColor, fontWeight = FontWeight.Bold)
+                }
+            }
+            if (settings.showLabels) {
+                Text(
+                    text = cell.label,
+                    color = OnWordColor,
+                    fontSize = (if (compact) 11.sp else 13.sp) * settings.labelScale,
+                    lineHeight = (if (compact) 12.sp else 14.sp) * settings.labelScale,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        if (editMode) {
+            Row(Modifier.align(Alignment.TopEnd).padding(2.dp)) {
+                if (cell.audioPath != null) Icon(Icons.Default.VolumeUp, null, Modifier.size(14.dp), tint = OnWordColor)
+                if (cell.hidden) Icon(Icons.Default.VisibilityOff, null, Modifier.size(14.dp), tint = OnWordColor)
+            }
+        }
+    }
+}
