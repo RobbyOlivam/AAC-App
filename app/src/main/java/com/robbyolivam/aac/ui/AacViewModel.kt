@@ -7,12 +7,19 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
 import com.robbyolivam.aac.AacApplication
 import com.robbyolivam.aac.core.Board
 import com.robbyolivam.aac.core.Cell
 import com.robbyolivam.aac.core.CellAction
 import com.robbyolivam.aac.core.EnglishMorphology
 import com.robbyolivam.aac.core.GrammarHelper
+import com.robbyolivam.aac.core.Hotspot
+import com.robbyolivam.aac.core.addHotspot
+import com.robbyolivam.aac.core.newSceneBoard
+import com.robbyolivam.aac.core.resizeBoard
+import com.robbyolivam.aac.core.updateHotspot
 import com.robbyolivam.aac.core.Symbol
 import com.robbyolivam.aac.core.Token
 import com.robbyolivam.aac.core.Vocabulary
@@ -41,6 +48,8 @@ enum class Screen { MAIN, SETTINGS }
 sealed interface EditTarget {
     data class Grid(val boardId: String, val index: Int) : EditTarget
     data class Strip(val index: Int) : EditTarget
+    /** A hotspot that doesn't exist yet, centered where the person tapped on a scene photo. */
+    data class NewHotspot(val boardId: String, val x: Float, val y: Float) : EditTarget
 }
 
 /** The cell a person picked up in edit mode and is about to drop somewhere else. */
@@ -54,11 +63,20 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
     val speaker = app.speaker
     val recorder = app.recorder
     val backup = app.backup
+    val openBoard = app.openBoard
+    val pdf = app.pdf
 
     val vocabulary get() = store.vocabulary
     val settings get() = settingsStore.settings
     private val s: Settings get() = settingsStore.settings.value
     private val v: Vocabulary get() = store.vocabulary.value
+    private val level: Int get() = s.vocabularyLevel
+
+    val scanner = Scanner(viewModelScope) { speak(it) }
+
+    init {
+        viewModelScope.launch { settingsStore.settings.collect { scanner.configure(it) } }
+    }
 
     var currentBoardId by mutableStateOf(v.homeBoardId)
         private set
@@ -92,20 +110,32 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
     // ---- Lookups ---------------------------------------------------------------------------
 
     private var indexedVocabulary: Vocabulary? = null
+    private var indexedLevel = -1
     private var wordIndex: Map<String, Cell> = emptyMap()
 
     /** Lower-case word → its button, for symbols in predictions and types for grammar help. */
     fun wordIndex(): Map<String, Cell> {
         val current = v
-        if (indexedVocabulary !== current) {
-            wordIndex = current.allWordCells().filter { it.action == CellAction.WORD }
+        if (indexedVocabulary !== current || indexedLevel != level) {
+            wordIndex = current.allWordCells(level).filter { it.action == CellAction.WORD }
                 .reversed().associateBy { it.text.lowercase() }
             indexedVocabulary = current
+            indexedLevel = level
         }
         return wordIndex
     }
 
-    fun search(query: String): List<WordLocation> = v.search(query)
+    fun search(query: String): List<WordLocation> = v.search(query, level = level)
+
+    /** Name of the board the in-app Back button returns to. */
+    fun backTargetName(): String =
+        if (panel == Panel.KEYBOARD) currentBoard.name
+        else backStack.lastOrNull()?.let { v.board(it)?.name } ?: v.home.name
+
+    private fun cellAt(boardId: String, index: Int): Cell? {
+        val board = v.board(boardId) ?: return null
+        return board.scene?.hotspots?.getOrNull(index)?.cell ?: board.cells.getOrNull(index)
+    }
 
     // ---- Selection -------------------------------------------------------------------------
 
@@ -121,7 +151,7 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
             onEditTap(boardId, index, cell)
             return
         }
-        if (cell == null || cell.hidden || debounced()) return
+        if (cell == null || !cell.visibleAt(level) || debounced()) return
         advanceGuide(boardId, index)
         if (formsMode && cell.action == CellAction.WORD && EnglishMorphology.hasForms(cell.text, cell.type)) {
             formsMode = false
@@ -141,7 +171,7 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onCellLongPress(cell: Cell?) {
-        if (editMode || cell == null || cell.hidden || cell.action != CellAction.WORD) return
+        if (editMode || cell == null || !cell.visibleAt(level) || cell.action != CellAction.WORD) return
         if (EnglishMorphology.hasForms(cell.text, cell.type)) formsFor = cell
     }
 
@@ -166,7 +196,8 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun afterWord(boardId: String) {
         val v = v
-        if (s.returnHomeAfterFolderWord && boardId != v.homeBoardId && boardId != v.phrasesBoardId) goHome()
+        val isScene = v.board(boardId)?.isScene == true
+        if (s.returnHomeAfterFolderWord && !isScene && boardId != v.homeBoardId && boardId != v.phrasesBoardId) goHome()
     }
 
     private fun addToken(token: MessageToken) {
@@ -329,7 +360,7 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun onEditTap(boardId: String, index: Int, cell: Cell?) {
         val source = moveSource
-        if (source != null) {
+        if (source != null && v.board(boardId)?.isScene != true) {
             moveSource = null
             if (source.boardId == boardId && source.index == index) return
             store.edit { voc ->
@@ -341,7 +372,7 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun startMove(target: EditTarget.Grid) {
-        val cell = v.board(target.boardId)?.cells?.getOrNull(target.index) ?: return
+        val cell = cellAt(target.boardId, target.index) ?: return
         editing = null
         moveSource = MoveSource(target.boardId, target.index, cell)
     }
@@ -351,14 +382,19 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun cellFor(target: EditTarget): Cell? = when (target) {
-        is EditTarget.Grid -> v.board(target.boardId)?.cells?.getOrNull(target.index)
+        is EditTarget.Grid -> cellAt(target.boardId, target.index)
         is EditTarget.Strip -> v.quickStrip.getOrNull(target.index)
+        is EditTarget.NewHotspot -> null
     }
+
+    fun hotspotFor(target: EditTarget): Hotspot? =
+        (target as? EditTarget.Grid)?.let { v.board(it.boardId)?.scene?.hotspots?.getOrNull(it.index) }
 
     fun saveCell(target: EditTarget, cell: Cell?) {
         when (target) {
             is EditTarget.Grid -> store.edit { it.setCell(target.boardId, target.index, cell) }
             is EditTarget.Strip -> if (cell != null) store.edit { it.updateQuickStrip(target.index, cell) }
+            is EditTarget.NewHotspot -> if (cell != null) addNewHotspot(target, cell, 0.24f, 0.24f)
         }
         editing = null
     }
@@ -369,6 +405,33 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
         val template = currentBoard
         store.edit { it.addBoard(newBoard(id, name.ifBlank { "New board" }, template.rows, template.cols)) }
         return id
+    }
+
+    /** Creates a photo scene board and returns its id. */
+    fun createSceneBoard(name: String, imagePath: String): String {
+        val id = "scene-" + UUID.randomUUID().toString().take(8)
+        store.edit { it.addBoard(newSceneBoard(id, name.ifBlank { "Scene" }, imagePath)) }
+        return id
+    }
+
+    /** Adds a hotspot centered where the person tapped, kept inside the photo. */
+    fun addNewHotspot(target: EditTarget.NewHotspot, cell: Cell, width: Float, height: Float) {
+        val x = (target.x - width / 2).coerceIn(0f, 1f - width)
+        val y = (target.y - height / 2).coerceIn(0f, 1f - height)
+        store.edit { it.addHotspot(target.boardId, Hotspot(x, y, width, height, cell)) }
+        editing = null
+    }
+
+    fun onSceneBackgroundTap(boardId: String, x: Float, y: Float) {
+        if (editMode && moveSource == null) editing = EditTarget.NewHotspot(boardId, x, y)
+    }
+
+    fun updateHotspot(boardId: String, index: Int, transform: (Hotspot) -> Hotspot) {
+        store.edit { it.updateHotspot(boardId, index, transform) }
+    }
+
+    fun resizeBoard(boardId: String, rows: Int, cols: Int) {
+        store.edit { it.resizeBoard(boardId, rows, cols) }
     }
 
     fun renameBoard(boardId: String, name: String) {

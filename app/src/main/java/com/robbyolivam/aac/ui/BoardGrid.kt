@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -123,6 +124,7 @@ fun BoardGrid(
     highlightIndex: Int?,
     movingIndex: Int?,
     media: MediaFiles,
+    isScanned: (groupId: String, itemId: String) -> Boolean,
     onSelect: (Int, Cell?) -> Unit,
     onLongPress: (Cell?) -> Unit,
     modifier: Modifier = Modifier,
@@ -139,6 +141,7 @@ fun BoardGrid(
                         editMode = editMode,
                         highlighted = highlightIndex == index,
                         moving = movingIndex == index,
+                        scanned = isScanned(scanRowId(row), scanCellId(index)),
                         media = media,
                         onSelect = { onSelect(index, cell) },
                         onLongPress = { onLongPress(cell) },
@@ -149,6 +152,12 @@ fun BoardGrid(
         }
     }
 }
+
+fun scanRowId(row: Int) = "row-$row"
+fun scanCellId(index: Int) = "cell-$index"
+
+/** Bright, unmistakable switch-scanning highlight (distinct from the "where is it" pulse). */
+val ScanHighlight = Color(0xFFFF6D00)
 
 @Composable
 fun CellButton(
@@ -162,9 +171,11 @@ fun CellButton(
     onLongPress: () -> Unit,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
+    scanned: Boolean = false,
 ) {
-    val visible = cell != null && (!cell.hidden || editMode)
-    if (!visible && !editMode) {
+    val level = settings.vocabularyLevel
+    val shown = cell != null && cell.visibleAt(level)
+    if (!shown && !editMode) {
         Box(modifier)
         return
     }
@@ -174,10 +185,14 @@ fun CellButton(
     val hapticsOn by rememberUpdatedState(settings.haptics)
     var pressed by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(10.dp)
+    val contrast = settings.highContrast
+    val typeColor = cell?.let { wordColor(it.type) }
     val background = when {
         cell == null -> MaterialTheme.colorScheme.surface.copy(alpha = 0.4f)
-        else -> wordColor(cell.type)
+        contrast -> Color.Black
+        else -> typeColor!!
     }
+    val textColor = if (contrast) Color.White else OnWordColor
     val pulse = if (highlighted) {
         val transition = rememberInfiniteTransition(label = "guide")
         transition.animateFloat(0.3f, 1f, infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "pulse").value
@@ -185,12 +200,19 @@ fun CellButton(
         0f
     }
     val borderColor = when {
+        scanned -> ScanHighlight
         highlighted -> MaterialTheme.colorScheme.primary.copy(alpha = pulse)
         moving -> MaterialTheme.colorScheme.secondary
         cell == null -> MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+        contrast -> typeColor!!
         else -> Color.Black.copy(alpha = 0.25f)
     }
-    val borderWidth = if (highlighted || moving) 4.dp else 1.dp
+    val borderWidth = when {
+        scanned -> 6.dp
+        highlighted || moving -> 4.dp
+        contrast -> 4.dp
+        else -> 1.dp
+    }
     val label = cell?.label ?: "Empty"
 
     Box(
@@ -199,7 +221,7 @@ fun CellButton(
             .clip(shape)
             .background(background)
             .border(borderWidth, borderColor, shape)
-            .alpha(if (cell?.hidden == true) 0.4f else 1f)
+            .alpha(if (cell != null && !shown) 0.4f else 1f)
             .aacSelectable(
                 holdTimeMs = if (editMode) 0 else settings.holdTimeMs,
                 acceptOnRelease = editMode || settings.acceptOnRelease,
@@ -232,48 +254,79 @@ fun CellButton(
                     .align(Alignment.TopStart)
                     .padding(start = 6.dp)
                     .size(width = 22.dp, height = 5.dp)
-                    .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(bottomStart = 3.dp, bottomEnd = 3.dp)),
+                    .background(textColor.copy(alpha = 0.45f), RoundedCornerShape(bottomStart = 3.dp, bottomEnd = 3.dp)),
             )
         }
-        Column(
-            Modifier.fillMaxSize().padding(horizontal = 2.dp, vertical = 3.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                val imagePath = cell.symbol.imagePath
-                val image = remember(imagePath) { imagePath?.let { media.load(it) } }
-                when {
-                    image != null -> Image(
-                        bitmap = image,
-                        contentDescription = null,
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(6.dp)),
-                    )
-                    !cell.symbol.emoji.isNullOrBlank() -> {
-                        val size = with(LocalDensity.current) { (minOf(maxHeight, maxWidth) * 0.72f).toSp() }
-                        Text(cell.symbol.emoji!!, fontSize = size, lineHeight = size, textAlign = TextAlign.Center)
-                    }
-                    !settings.showLabels -> Text(cell.label, color = OnWordColor, fontWeight = FontWeight.Bold)
-                }
+        BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 3.dp, vertical = 3.dp)) {
+            // Short, wide buttons (landscape phones) put the picture beside the label.
+            val wide = settings.showLabels && maxWidth > maxHeight * 1.7f
+            val labelSize = ((if (compact) 11.sp else 13.sp) * settings.labelScale).let {
+                if (wide && maxHeight > 30.dp) it * 1.15f else it
             }
-            if (settings.showLabels) {
-                Text(
-                    text = cell.label,
-                    color = OnWordColor,
-                    fontSize = (if (compact) 11.sp else 13.sp) * settings.labelScale,
-                    lineHeight = (if (compact) 12.sp else 14.sp) * settings.labelScale,
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
+            if (wide) {
+                Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.fillMaxHeight().aspectRatio(1f), contentAlignment = Alignment.Center) {
+                        CellSymbol(cell, media, settings.showLabels, textColor)
+                    }
+                    Text(
+                        text = cell.label,
+                        color = textColor,
+                        fontSize = labelSize,
+                        lineHeight = labelSize * 1.1f,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(start = 4.dp).weight(1f),
+                    )
+                }
+            } else {
+                Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        CellSymbol(cell, media, settings.showLabels, textColor)
+                    }
+                    if (settings.showLabels) {
+                        Text(
+                            text = cell.label,
+                            color = textColor,
+                            fontSize = labelSize,
+                            lineHeight = labelSize * 1.08f,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
             }
         }
         if (editMode) {
-            Row(Modifier.align(Alignment.TopEnd).padding(2.dp)) {
-                if (cell.audioPath != null) Icon(Icons.Default.VolumeUp, null, Modifier.size(14.dp), tint = OnWordColor)
-                if (cell.hidden) Icon(Icons.Default.VisibilityOff, null, Modifier.size(14.dp), tint = OnWordColor)
+            Row(Modifier.align(Alignment.TopEnd).padding(2.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (cell.level > level) Text("L${cell.level}", fontSize = 10.sp, color = textColor, fontWeight = FontWeight.Bold)
+                if (cell.audioPath != null) Icon(Icons.Default.VolumeUp, null, Modifier.size(14.dp), tint = textColor)
+                if (cell.hidden) Icon(Icons.Default.VisibilityOff, null, Modifier.size(14.dp), tint = textColor)
             }
+        }
+    }
+}
+
+/** The picture (photo or emoji) for a cell, sized to whatever space it's given. */
+@Composable
+fun CellSymbol(cell: Cell, media: MediaFiles, showLabels: Boolean, textColor: Color) {
+    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        val imagePath = cell.symbol.imagePath
+        val image = remember(imagePath) { imagePath?.let { media.load(it) } }
+        when {
+            image != null -> Image(
+                bitmap = image,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(6.dp)),
+            )
+            !cell.symbol.emoji.isNullOrBlank() -> {
+                val size = with(LocalDensity.current) { (minOf(maxHeight, maxWidth) * 0.72f).toSp() }
+                Text(cell.symbol.emoji!!, fontSize = size, lineHeight = size, textAlign = TextAlign.Center)
+            }
+            !showLabels -> Text(cell.label, color = textColor, fontWeight = FontWeight.Bold)
         }
     }
 }

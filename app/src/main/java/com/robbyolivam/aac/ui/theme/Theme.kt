@@ -7,6 +7,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import com.robbyolivam.aac.core.WordType
+import com.robbyolivam.aac.core.fitzgeraldRgb
 import com.robbyolivam.aac.data.ThemeMode
 
 private val Teal = Color(0xFF2E7D6B)
@@ -25,19 +26,8 @@ private val DarkColors = darkColorScheme(
     surface = Color(0xFF1B2120),
 )
 
-/** Modified Fitzgerald Key colors, the convention most AAC systems and SLPs use. */
-fun wordColor(type: WordType): Color = when (type) {
-    WordType.PRONOUN, WordType.PERSON -> Color(0xFFFFF176)
-    WordType.VERB -> Color(0xFFA5D6A7)
-    WordType.ADJECTIVE, WordType.ADVERB -> Color(0xFF90CAF9)
-    WordType.NOUN, WordType.PLACE -> Color(0xFFFFCC80)
-    WordType.QUESTION -> Color(0xFFCE93D8)
-    WordType.NEGATION -> Color(0xFFEF9A9A)
-    WordType.SOCIAL -> Color(0xFFF8BBD0)
-    WordType.PREPOSITION, WordType.DETERMINER, WordType.CONJUNCTION -> Color(0xFFE0E0E0)
-    WordType.FOLDER -> Color(0xFFD7CCC8)
-    WordType.OTHER -> Color(0xFFF5F5F5)
-}
+/** Modified Fitzgerald Key colors, shared with exports via the core module. */
+fun wordColor(type: WordType): Color = Color(0xFF000000.toInt() or fitzgeraldRgb(type))
 
 /** Text on word buttons is always dark: the Fitzgerald colors are light in both themes. */
 val OnWordColor = Color(0xFF1A1A1A)

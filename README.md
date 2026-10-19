@@ -1,6 +1,6 @@
 # AAC Talk
 
-An Android-first AAC (augmentative and alternative communication) app. It works offline, keeps your data private, and is built around a fixed motor plan. This is the **MVP**, aimed at a Pixel phone.
+An Android-first AAC (augmentative and alternative communication) app. It works offline, keeps your data private, and is built around a fixed motor plan. Phase 1 (MVP) targeted a Pixel phone; **phase 2** adds tablet and landscape support, switch access and more.
 
 - 📄 [Market analysis & product requirements](docs/AAC-Market-Analysis-and-Requirements.md)
 
@@ -18,9 +18,23 @@ An Android-first AAC (augmentative and alternative communication) app. It works 
 | Edit | Edit any button: label, emoji, photo/camera, type/color, folder link, recording, hide (keeps position), move, delete, undo/redo |
 | Safety | Settings protected by a 1.5 s hold or a PIN, automatic snapshots every 10 min (last 30 kept), backup/restore to a .zip, Quick Settings "Talk" tile, optional show-on-lock-screen and keep-screen-on |
 
+## Phase 2 additions
+
+| Area | Features |
+|---|---|
+| Layout | Landscape and tablet layout: menu on the left, quick words on the right, short wide buttons put the picture beside the word. Orientation setting (auto / portrait / landscape) |
+| Navigation | **In-app Back bar** above every folder and the keyboard ("◀ Back to Core" plus the page name). Settings has a "Back to talking" button. Nobody needs the phone's back gesture |
+| Vocabulary levels | 1 · First words (12), 2 · Early, 3 · Growing, 4 · All. Lower levels hide words in place, so nothing moves as vocabulary grows. Set per button in the editor |
+| Switch scanning | 1-switch auto scan or 2-switch step scan, row then button. Works with Bluetooth/USB switches (Space/Enter or 1/2) or by tapping anywhere on screen. Optional spoken cues. Covers the board, keyboard, predictions, quick strip, message buttons and menu |
+| Photo scenes | Visual scene displays: a photo with tappable spots. Make one from the editor (folder → "+ New photo scene"), tap the photo to add spots, drag to move, set spot size |
+| Pages | Page options in edit mode: rename and resize (buttons keep their row and column) |
+| Accessibility | High-contrast (CVI) buttons: black with a thick colored border |
+| Sharing | Open Board Format **.obz / .obf** import and export (CoughDrop, Cboard and others), and **print all boards to PDF** as a paper backup |
+| Device | "Lock to this app" (screen pinning) so a child stays in the talker |
+
 ## Install on your Pixel (no Android Studio needed)
 
-1. Open the repo's **Actions** tab → **Android build** → the latest green run.
+1. Open the repo's **Actions** tab → **Android build** → the latest green run (in Chrome, signed in to GitHub).
 2. Download the **aac-app-debug-apk** artifact (a zip) and unzip it on your phone. You get `app-debug.apk`.
 3. Open the APK and allow "Install unknown apps" for your browser or Files app when asked.
 4. Optional: swipe down twice → ✏️ edit → drag the **Talk** tile into Quick Settings.
@@ -40,12 +54,14 @@ You need Android Studio (or the Android SDK with platform 35) and JDK 17+.
 ## Project layout
 
 ```
-core/  Pure Kotlin, no Android: vocabulary model, starter vocabulary, morphology,
-       predictor, grammar helper, search. Becomes a Kotlin Multiplatform module for iOS/web.
+core/  Pure Kotlin, no Android: vocabulary model (grids, photo scenes, levels), starter
+       vocabulary, morphology, predictor, grammar helper, search, Open Board Format.
+       Becomes a Kotlin Multiplatform module for iOS/web.
 app/   Android app (Jetpack Compose)
-  data/    vocabulary storage (atomic JSON + undo + snapshots), settings, media, backup
+  data/    vocabulary storage (atomic JSON + undo + snapshots), settings, media, backup,
+           Open Board files, PDF printing
   speech/  text-to-speech and audio recording
-  ui/      board, message bar, keyboard, dialogs, editor, settings
+  ui/      board, photo scenes, message bar, keyboard, switch scanner, dialogs, editor, settings
   tile/    Quick Settings tile
 ```
 
@@ -57,4 +73,4 @@ app/   Android app (Jetpack Compose)
 
 ## Next steps (from the roadmap)
 
-Gemini Nano "expand my words" (on-device), kid voices, switch scanning, vocabulary levels, OBF import/export, kiosk mode, and a tablet layout.
+Gemini Nano "expand my words" (on-device), bundled kid/teen voices, partner "ghost modeling" app, Listen mode, usage reports for SLPs, Wear OS companion, then iOS/web via Kotlin Multiplatform.

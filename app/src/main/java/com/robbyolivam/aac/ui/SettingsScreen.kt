@@ -1,5 +1,8 @@
 package com.robbyolivam.aac.ui
 
+import android.app.Activity
+import android.app.ActivityManager
+import android.content.Context
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -45,6 +48,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.robbyolivam.aac.data.KeyboardLayout
+import com.robbyolivam.aac.data.OrientationMode
+import com.robbyolivam.aac.data.ScanMode
 import com.robbyolivam.aac.data.Settings
 import com.robbyolivam.aac.data.SettingsLock
 import com.robbyolivam.aac.data.ThemeMode
@@ -89,12 +94,52 @@ fun SettingsScreen(vm: AacViewModel) {
         }
     }
 
+    val openBoardExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        if (uri != null) scope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                runCatching { context.contentResolver.openOutputStream(uri)?.use { vm.openBoard.export(it) } }.isSuccess
+            }
+            toast(if (ok) "Open Board file saved" else "Couldn't save the file")
+        }
+    }
+    val openBoardImport = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { context.contentResolver.openInputStream(uri)?.use { vm.openBoard.import(it) } ?: 0 }
+            }
+            toast(
+                result.fold(
+                    onSuccess = { skipped ->
+                        "Boards imported. Undo in edit mode brings back your old ones." +
+                            if (skipped > 0) " $skipped online-only pictures were skipped." else ""
+                    },
+                    onFailure = { "That file isn't an Open Board (.obz / .obf) file" },
+                ),
+            )
+        }
+    }
+    val pdfExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+        if (uri != null) scope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openOutputStream(uri)?.use { vm.pdf.export(vm.vocabulary.value, settings.vocabularyLevel, it) }
+                }.isSuccess
+            }
+            toast(if (ok) "PDF saved — print it from Files or Drive" else "Couldn't make the PDF")
+        }
+    }
+    val activity = context as? Activity
+    var pinned by remember { mutableStateOf(isScreenPinned(context)) }
+
     BackHandler { vm.screen = Screen.MAIN }
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { vm.screen = Screen.MAIN }) { Icon(Icons.Default.ArrowBack, "Back") }
-            Text("Settings", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Button(onClick = { vm.screen = Screen.MAIN }) {
+                Icon(Icons.Default.ArrowBack, null)
+                Text("  Back to talking")
+            }
+            Text("  Settings", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         }
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -143,6 +188,17 @@ fun SettingsScreen(vm: AacViewModel) {
             ) { v -> update { it.copy(debounceMs = (v / 100).roundToInt() * 100) } }
             ToggleSetting("Vibrate on tap", settings.haptics) { v -> update { it.copy(haptics = v) } }
 
+            Header("Vocabulary level")
+            ChipFlow {
+                listOf(1 to "1 · First words", 2 to "2 · Early", 3 to "3 · Growing", 4 to "4 · All").forEach { (l, name) ->
+                    FilterChip(settings.vocabularyLevel == l, { update { it.copy(vocabularyLevel = l) } }, { Text(name) })
+                }
+            }
+            Text(
+                "Lower levels hide words in place. Nothing moves when you go up a level, so motor memory carries over.",
+                fontSize = 13.sp, color = MaterialTheme.colorScheme.outline,
+            )
+
             Header("Board")
             ToggleSetting("Go back to Core after picking a folder word", settings.returnHomeAfterFolderWord) { v -> update { it.copy(returnHomeAfterFolderWord = v) } }
             ToggleSetting("Show word predictions", settings.showPredictions) { v -> update { it.copy(showPredictions = v) } }
@@ -155,11 +211,43 @@ fun SettingsScreen(vm: AacViewModel) {
                     FilterChip(settings.keyboardLayout == k, { update { it.copy(keyboardLayout = k) } }, { Text(k.name) })
                 }
             }
+            Text("Screen orientation", fontWeight = FontWeight.SemiBold)
+            ChipFlow {
+                listOf(OrientationMode.AUTO to "Auto-rotate", OrientationMode.PORTRAIT to "Portrait", OrientationMode.LANDSCAPE to "Landscape").forEach { (o, name) ->
+                    FilterChip(settings.orientation == o, { update { it.copy(orientation = o) } }, { Text(name) })
+                }
+            }
+            ToggleSetting("High contrast buttons (low vision / CVI)", settings.highContrast) { v -> update { it.copy(highContrast = v) } }
             Text("Theme", fontWeight = FontWeight.SemiBold)
             ChipFlow {
                 ThemeMode.entries.forEach { t ->
                     FilterChip(settings.themeMode == t, { update { it.copy(themeMode = t) } }, { Text(t.name.lowercase().replaceFirstChar(Char::uppercase)) })
                 }
+            }
+
+            Header("Switch scanning")
+            ChipFlow {
+                listOf(ScanMode.OFF to "Off", ScanMode.AUTO to "1 switch (auto)", ScanMode.STEP to "2 switches (step)").forEach { (m, name) ->
+                    FilterChip(settings.scanMode == m, { update { it.copy(scanMode = m) } }, { Text(name) })
+                }
+            }
+            if (settings.scanMode != ScanMode.OFF) {
+                Text(
+                    if (settings.scanMode == ScanMode.AUTO) "The highlight moves by itself. Press the switch to pick a row, then a button."
+                    else "Switch 1 (Space or 1) moves the highlight. Switch 2 (Enter or 2) selects.",
+                    fontSize = 13.sp, color = MaterialTheme.colorScheme.outline,
+                )
+                if (settings.scanMode == ScanMode.AUTO) {
+                    SliderSetting(
+                        "Scan speed", settings.scanIntervalMs.toFloat(), 500f..4000f,
+                        "%.1f s".format(settings.scanIntervalMs / 1000f), steps = 34,
+                    ) { v -> update { it.copy(scanIntervalMs = (v / 100).roundToInt() * 100) } }
+                    SliderSetting("Stop after this many loops", settings.scanLoops.toFloat(), 1f..10f, "${settings.scanLoops}", steps = 8) { v ->
+                        update { it.copy(scanLoops = v.roundToInt()) }
+                    }
+                }
+                ToggleSetting("Speak each row and button as it lights up", settings.scanSpeakItems) { v -> update { it.copy(scanSpeakItems = v) } }
+                ToggleSetting("Tap anywhere on screen as a switch", settings.scanTouchAnywhere) { v -> update { it.copy(scanTouchAnywhere = v) } }
             }
 
             Header("Device")
@@ -171,6 +259,25 @@ fun SettingsScreen(vm: AacViewModel) {
             }
             ToggleSetting("Keep screen on", settings.keepScreenOn) { v -> update { it.copy(keepScreenOn = v) } }
             ToggleSetting("Show over the lock screen", settings.showOnLockScreen) { v -> update { it.copy(showOnLockScreen = v) } }
+            if (activity != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Lock to this app (screen pinning)", fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Keeps a child in the talker. To leave: hold Back and Overview together (or swipe up and hold).",
+                            fontSize = 12.sp, color = MaterialTheme.colorScheme.outline,
+                        )
+                    }
+                    if (pinned) {
+                        OutlinedButton(onClick = { runCatching { activity.stopLockTask() }; pinned = false }) { Text("Unpin") }
+                    } else {
+                        OutlinedButton(onClick = {
+                            vm.screen = Screen.MAIN
+                            runCatching { activity.startLockTask() }
+                        }) { Text("Pin now") }
+                    }
+                }
+            }
             Text(
                 "Tip: add the “Talk” tile to Quick Settings (swipe down twice → edit) to open this app from anywhere.",
                 fontSize = 13.sp, color = MaterialTheme.colorScheme.outline,
@@ -185,6 +292,21 @@ fun SettingsScreen(vm: AacViewModel) {
                 OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/zip", "application/octet-stream")) }) { Text("Restore backup") }
             }
             OutlinedButton(onClick = { showSnapshots = true }) { Text("Restore an earlier version…") }
+
+            Header("Share with other AAC apps & print")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { openBoardExport.launch("aac-boards.obz") }) { Text("Export .obz") }
+                OutlinedButton(onClick = { openBoardImport.launch(arrayOf("*/*")) }) { Text("Import .obz / .obf") }
+            }
+            Text(
+                "Open Board Format works with CoughDrop, Cboard and other apps. Importing replaces your boards (Undo brings them back).",
+                fontSize = 13.sp, color = MaterialTheme.colorScheme.outline,
+            )
+            OutlinedButton(onClick = { pdfExport.launch("aac-boards.pdf") }) { Text("Print boards (PDF)") }
+            Text(
+                "A paper copy is the backup for dead batteries, the pool, or the beach.",
+                fontSize = 13.sp, color = MaterialTheme.colorScheme.outline,
+            )
             TextButton(onClick = { confirmReset = true }) { Text("Reset to starter vocabulary", color = MaterialTheme.colorScheme.error) }
 
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
@@ -192,7 +314,7 @@ fun SettingsScreen(vm: AacViewModel) {
                 "Speech always works offline. Your words stay on this device unless you save a backup.",
                 fontSize = 13.sp, color = MaterialTheme.colorScheme.outline,
             )
-            Text("Version 0.1.0 (MVP)", fontSize = 13.sp, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(bottom = 24.dp))
+            Text("Version 0.2.0", fontSize = 13.sp, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(bottom = 24.dp))
         }
     }
 
@@ -219,6 +341,11 @@ fun SettingsScreen(vm: AacViewModel) {
             dismissButton = { TextButton(onClick = { confirmReset = false }) { Text("Cancel") } },
         )
     }
+}
+
+private fun isScreenPinned(context: Context): Boolean {
+    val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return false
+    return am.lockTaskModeState != ActivityManager.LOCK_TASK_MODE_NONE
 }
 
 @Composable

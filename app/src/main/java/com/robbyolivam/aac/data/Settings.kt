@@ -13,6 +13,13 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK }
 @Serializable
 enum class KeyboardLayout { QWERTY, ABC }
 
+@Serializable
+enum class OrientationMode { AUTO, PORTRAIT, LANDSCAPE }
+
+/** OFF, one-switch automatic scanning, or two-switch step scanning (move + select). */
+@Serializable
+enum class ScanMode { OFF, AUTO, STEP }
+
 /** How settings and edit mode are protected from accidental (or curious) taps. */
 @Serializable
 enum class SettingsLock { NONE, HOLD, PIN }
@@ -38,6 +45,18 @@ data class Settings(
     val grammarHelper: Boolean = true,
     val keyboardLayout: KeyboardLayout = KeyboardLayout.QWERTY,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    /** 1–4; words above this level are hidden in place. */
+    val vocabularyLevel: Int = 4,
+    /** Black buttons with colored borders, for low vision / cortical visual impairment. */
+    val highContrast: Boolean = false,
+    val orientation: OrientationMode = OrientationMode.AUTO,
+    // Switch scanning
+    val scanMode: ScanMode = ScanMode.OFF,
+    val scanIntervalMs: Int = 1500,
+    val scanLoops: Int = 3,
+    val scanSpeakItems: Boolean = false,
+    /** Treat a tap anywhere on the screen as a switch press (no Bluetooth switch needed). */
+    val scanTouchAnywhere: Boolean = true,
     // Device
     val settingsLock: SettingsLock = SettingsLock.HOLD,
     val pin: String = "",

@@ -177,6 +177,19 @@ object DefaultVocabulary {
         ),
     )
 
+    /**
+     * Vocabulary levels for the core board (1 = first 12 words, 2 = 24, 3 = 36, 4 = all).
+     * Words keep their position at every level; lower levels only hide.
+     */
+    private val coreLevels: Map<String, Int> = buildMap {
+        listOf("I", "you", "want", "like", "go", "stop", "help", "eat", "play", "more", "all done", "not")
+            .forEach { put(it, 1) }
+        listOf("it", "my", "get", "drink", "see", "do", "make", "good", "bad", "what", "Food", "People")
+            .forEach { put(it, 2) }
+        listOf("he", "she", "we", "they", "have", "feel", "is", "big", "little", "where", "in", "Feelings")
+            .forEach { put(it, 3) }
+    }
+
     private val phrases = listOf(
         e("Hi!", "👋", SOCIAL), e("Bye!", "🙋", SOCIAL), e("How are you?", "🙂", SOCIAL),
         e("I'm good", "😊", SOCIAL), e("Wait, I'm still talking", "✋", SOCIAL), e("I need a break", "🛑", SOCIAL),
@@ -204,6 +217,19 @@ object DefaultVocabulary {
         return Board(id, name, ROWS, COLS, cells + List(ROWS * COLS - cells.size) { null })
     }
 
+    /** Upgrades a saved vocabulary to the current format. */
+    fun migrate(vocabulary: Vocabulary): Vocabulary {
+        var v = vocabulary
+        if (v.version < 2) {
+            // Version 2 added vocabulary levels; give the starter core words their levels.
+            val levels = create().home.cells.filterNotNull().associate { it.id to it.level }
+            v = v.copy(boards = v.boards.map { b ->
+                if (b.id != HOME) b else b.copy(cells = b.cells.map { c -> c?.let { it.copy(level = levels[it.id] ?: it.level) } })
+            })
+        }
+        return v.copy(version = Vocabulary.CURRENT_VERSION)
+    }
+
     fun create(): Vocabulary {
         val folderCells = folders.map { f ->
             Cell(
@@ -219,6 +245,10 @@ object DefaultVocabulary {
         for (row in 0 until ROWS) {
             coreColumns.forEachIndexed { col, column -> coreCells[row * COLS + col] = column[row].toCell(HOME) }
             coreCells[row * COLS + COLS - 1] = folderCells[row]
+        }
+        for (i in coreCells.indices) {
+            val cell = coreCells[i] ?: continue
+            coreCells[i] = cell.copy(level = coreLevels[cell.label] ?: Cell.MAX_LEVEL)
         }
         val boards = buildList {
             add(Board(HOME, "Core", ROWS, COLS, coreCells))

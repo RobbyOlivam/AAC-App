@@ -205,3 +205,51 @@ fun TextInputDialog(title: String, initial: String, onConfirm: (String) -> Unit,
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
+
+/** Rename a page and (for grids) change its size. Cells keep their row and column. */
+@Composable
+fun BoardOptionsDialog(vm: AacViewModel, board: com.robbyolivam.aac.core.Board, onDismiss: () -> Unit) {
+    var name by remember { mutableStateOf(board.name) }
+    var rows by remember { mutableStateOf(board.rows) }
+    var cols by remember { mutableStateOf(board.cols) }
+    val lost = if (board.isScene) 0 else board.cellsLostByResize(rows, cols)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Page options") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, singleLine = true)
+                if (!board.isScene) {
+                    Stepper("Rows", rows, 1..12) { rows = it }
+                    Stepper("Columns", cols, 1..12) { cols = it }
+                    Text(
+                        "Buttons keep their row and column, so growing a page never moves anything.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                    if (lost > 0) {
+                        Text("$lost button(s) are outside the new size and will be removed (Undo brings them back).", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                if (name.isNotBlank() && name != board.name) vm.renameBoard(board.id, name.trim())
+                if (!board.isScene && (rows != board.rows || cols != board.cols)) vm.resizeBoard(board.id, rows, cols)
+                onDismiss()
+            }) { Text("Apply") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun Stepper(label: String, value: Int, range: IntRange, onChange: (Int) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f))
+        TextButton(onClick = { if (value > range.first) onChange(value - 1) }) { Text("−", fontSize = 22.sp) }
+        Text("$value", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        TextButton(onClick = { if (value < range.last) onChange(value + 1) }) { Text("+", fontSize = 22.sp) }
+    }
+}
