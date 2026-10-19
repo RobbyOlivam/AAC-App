@@ -23,8 +23,18 @@ jobs:
       - name: Unit tests (shared core)
         run: ./gradlew :core:test --stacktrace
 
+      - name: Screen tests (Robolectric + screenshots)
+        run: ./gradlew :app:recordRoborazziDebug --stacktrace
+
       - name: Build debug APK
         run: ./gradlew :app:assembleDebug --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: app/build/screenshots/
+          if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         with:

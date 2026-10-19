@@ -43,10 +43,13 @@ All builds are signed with the same checked-in debug key, so a newer APK install
 
 ## Build locally
 
-You need Android Studio (or the Android SDK with platform 35) and JDK 17+.
+You need Android Studio (or the Android SDK with platform 35) and JDK 17+. Without Android Studio, `scripts/setup-android-sdk.sh` installs the SDK (cloud sessions run it automatically).
+
+The screen tests drive the real app on the JVM (Robolectric) on a Pixel-sized and a tablet-sized screen, portrait and landscape. They save a screenshot of each state; CI attaches them to every build as the **screenshots** artifact.
 
 ```bash
-./gradlew :core:test          # shared logic unit tests
+./gradlew :core:test                  # shared logic unit tests
+./gradlew :app:recordRoborazziDebug   # screen tests; screenshots in app/build/screenshots/
 ./gradlew :app:assembleDebug  # APK at app/build/outputs/apk/debug/
 ./gradlew :app:installDebug   # install on a connected phone (USB debugging on)
 ```

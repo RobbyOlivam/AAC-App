@@ -260,8 +260,15 @@ fun CellButton(
         BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 3.dp, vertical = 3.dp)) {
             // Short, wide buttons (landscape phones) put the picture beside the label.
             val wide = settings.showLabels && maxWidth > maxHeight * 1.7f
-            val labelSize = ((if (compact) 11.sp else 13.sp) * settings.labelScale).let {
-                if (wide && maxHeight > 30.dp) it * 1.15f else it
+            // Labels grow with the button (tablets) but never shrink below a readable size.
+            val density = LocalDensity.current
+            val labelSize = with(density) {
+                val byHeight = if (wide) maxHeight * 0.36f else maxHeight * 0.16f
+                // Never so big that the longest word has to break mid-word.
+                val textWidth = if (wide) maxWidth - maxHeight - 8.dp else maxWidth - 4.dp
+                val longestWord = cell.label.split(' ').maxOf { it.length }.coerceAtLeast(3)
+                val byWidth = textWidth / (0.62f * longestWord)
+                minOf(byHeight, byWidth).toSp().value.coerceIn(if (compact) 10f else 12f, 26f).sp * settings.labelScale
             }
             if (wide) {
                 Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {

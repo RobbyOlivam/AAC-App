@@ -18,6 +18,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.robbyolivam.aac.data.OrientationMode
 import com.robbyolivam.aac.ui.AacViewModel
@@ -28,7 +30,8 @@ import com.robbyolivam.aac.ui.SettingsScreen
 import com.robbyolivam.aac.ui.theme.AacTheme
 
 class MainActivity : ComponentActivity() {
-    private val vm: AacViewModel by viewModels()
+    // Explicit factory: always built from this activity's own Application.
+    private val vm: AacViewModel by viewModels { viewModelFactory { initializer { AacViewModel(application) } } }
 
     /** Bluetooth/USB switches usually type Space/Enter (or 1/2); route them to scanning. */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {

@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ \"$CLAUDE_CODE_REMOTE\" = \"true\" ] && \"$CLAUDE_PROJECT_DIR\"/scripts/setup-android-sdk.sh || true",
+            "timeout": 600
+          }
+        ]
+      }
+    ]
+  }
+}

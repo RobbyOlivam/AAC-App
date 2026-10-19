@@ -3,6 +3,9 @@ package com.robbyolivam.aac.core
 import com.robbyolivam.aac.core.WordType.*
 
 /**
+ * Emoji are limited to Unicode 13 or older so they render on Android 11 tablets and Fire OS,
+ * not only on current Pixels.
+ *
  * Starter vocabulary: a 6×8 core board laid out by part of speech (people → verbs →
  * describing words → little words → folders, left to right), plus fringe folders,
  * quick phrases and an always-available strip.
@@ -78,7 +81,7 @@ object DefaultVocabulary {
                 e("home", "🏠", PLACE), e("school", "🏫", PLACE), e("park", "🏞️", PLACE),
                 e("store", "🏪", PLACE), e("outside", "🌳", PLACE), e("inside", "🚪", PLACE),
                 e("bathroom", "🚽", PLACE), e("bedroom", "🛏️", PLACE), e("kitchen", "🧑‍🍳", PLACE),
-                e("car", "🚗", PLACE), e("playground", "🛝", PLACE), e("pool", "🏊", PLACE),
+                e("car", "🚗", PLACE), e("playground", "🎠", PLACE), e("pool", "🏊", PLACE),
                 e("restaurant", "🍴", PLACE), e("library", "📚", PLACE), e("hospital", "🏥", PLACE),
                 e("beach", "🏖️", PLACE), e("bus", "🚌", PLACE), e("work", "🏢", PLACE),
                 e("zoo", "🦁", PLACE), e("movies", "🎬", PLACE), e("church", "⛪", PLACE),
@@ -90,7 +93,7 @@ object DefaultVocabulary {
                 e("run", "🏃", VERB), e("walk", "🚶", VERB), e("jump", "🤸", VERB),
                 e("sit", "🪑", VERB), e("sleep", "😴", VERB), e("read", "📖", VERB),
                 e("watch", "📺", VERB), e("listen", "👂", VERB), e("open", "📂", VERB),
-                e("close", "🔒", VERB), e("come", "🫴", VERB), e("give", "🎁", VERB),
+                e("close", "🔒", VERB), e("come", "👋", VERB), e("give", "🎁", VERB),
                 e("take", "✊", VERB), e("wash", "🧼", VERB), e("brush", "🪥", VERB),
                 e("swim", "🏊", VERB), e("draw", "✏️", VERB), e("sing", "🎤", VERB),
                 e("dance", "💃", VERB), e("hug", "🤗", VERB), e("wait", "⏳", VERB),
@@ -114,10 +117,10 @@ object DefaultVocabulary {
                 e("broken", "💔", ADJECTIVE), e("fun", "🎉", ADJECTIVE), e("funny", "😂", ADJECTIVE),
                 e("yucky", "🤢", ADJECTIVE), e("yummy", "😋", ADJECTIVE), e("pretty", "🌸", ADJECTIVE),
                 e("scary", "👻", ADJECTIVE), e("easy", "👍", ADJECTIVE), e("difficult", "😓", ADJECTIVE),
-                e("same", "🟰", ADJECTIVE), e("different", "🔀", ADJECTIVE), e("cold", "🥶", ADJECTIVE),
+                e("same", "👯", ADJECTIVE), e("different", "🔀", ADJECTIVE), e("cold", "🥶", ADJECTIVE),
                 e("red", "🔴", ADJECTIVE), e("blue", "🔵", ADJECTIVE), e("green", "🟢", ADJECTIVE),
                 e("yellow", "🟡", ADJECTIVE), e("orange", "🟠", ADJECTIVE), e("purple", "🟣", ADJECTIVE),
-                e("black", "⚫", ADJECTIVE), e("white", "⚪", ADJECTIVE), e("pink", "🩷", ADJECTIVE),
+                e("black", "⚫", ADJECTIVE), e("white", "⚪", ADJECTIVE), e("pink", "🎀", ADJECTIVE),
                 e("brown", "🟤", ADJECTIVE), e("up", "⬆️", PREPOSITION), e("down", "⬇️", PREPOSITION),
                 e("here", "📍", ADVERB), e("there", "👉", ADVERB), e("very", "‼️", ADVERB),
                 e("too", "➕", ADVERB), e("nice", "😇", ADJECTIVE), e("mean", "😈", ADJECTIVE),
@@ -128,7 +131,7 @@ object DefaultVocabulary {
                 e("toy", "🧸", NOUN), e("ball", "⚽", NOUN), e("book", "📕", NOUN),
                 e("tablet", "📲", NOUN), e("TV", "📺", NOUN), e("music", "🎵", NOUN),
                 e("blocks", "🧱", NOUN), e("puzzle", "🧩", NOUN), e("toy car", "🚙", NOUN),
-                e("bubbles", "🫧", NOUN), e("crayons", "🖍️", NOUN), e("paper", "📄", NOUN),
+                e("bubbles", "💭", NOUN), e("crayons", "🖍️", NOUN), e("paper", "📄", NOUN),
                 e("shoes", "👟", NOUN), e("coat", "🧥", NOUN), e("hat", "🧢", NOUN),
                 e("shirt", "👕", NOUN), e("pants", "👖", NOUN), e("socks", "🧦", NOUN),
                 e("bed", "🛏️", NOUN), e("chair", "🪑", NOUN), e("door", "🚪", NOUN),
@@ -136,7 +139,7 @@ object DefaultVocabulary {
                 e("backpack", "🎒", NOUN), e("computer", "💻", NOUN), e("game", "🎮", NOUN),
                 e("video", "🎬", NOUN), e("bath", "🛁", NOUN), e("glasses", "👓", NOUN),
                 e("medicine", "💊", NOUN), e("phone", "📱", NOUN), e("headphones", "🎧", NOUN),
-                e("blanket", "🛌", NOUN), e("bike", "🚲", NOUN), e("swing", "🛝", NOUN),
+                e("blanket", "🛌", NOUN), e("bike", "🚲", NOUN), e("swing", "🎡", NOUN),
             )
         ),
         Folder(
@@ -157,15 +160,15 @@ object DefaultVocabulary {
     private val coreColumns: List<List<Entry>> = listOf(
         listOf(
             e("I", "🙋", PRONOUN), e("you", "👉", PRONOUN), e("he", "👦", PRONOUN), e("she", "👧", PRONOUN),
-            e("we", "👫", PRONOUN), e("it", "📦", PRONOUN), e("they", "👥", PRONOUN), e("my", "🫵", PRONOUN),
+            e("we", "👫", PRONOUN), e("it", "📦", PRONOUN), e("they", "👥", PRONOUN), e("my", "💁", PRONOUN),
         ),
         listOf(
             e("want", "🤲", VERB), e("like", "👍", VERB), e("go", "🚶", VERB), e("stop", "✋", VERB),
-            e("help", "🆘", VERB), e("get", "🫳", VERB), e("eat", "🍽️", VERB), e("drink", "🥤", VERB),
+            e("help", "🆘", VERB), e("get", "🤏", VERB), e("eat", "🍽️", VERB), e("drink", "🥤", VERB),
         ),
         listOf(
             e("play", "🧸", VERB), e("see", "👀", VERB), e("do", "🛠️", VERB), e("make", "🎨", VERB),
-            e("have", "🫴", VERB), e("feel", "💗", VERB), e("put", "📥", VERB), e("is", "🟰", VERB),
+            e("have", "👐", VERB), e("feel", "💗", VERB), e("put", "📥", VERB), e("is", "⚖️", VERB),
         ),
         listOf(
             e("more", "➕", ADJECTIVE), e("big", "🐘", ADJECTIVE), e("little", "🐭", ADJECTIVE), e("good", "👌", ADJECTIVE),
