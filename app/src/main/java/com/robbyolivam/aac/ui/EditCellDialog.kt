@@ -38,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -85,6 +86,10 @@ fun EditCellDialog(vm: AacViewModel, target: EditTarget) {
     var linkTo by remember { mutableStateOf(original?.linkTo) }
     var hidden by remember { mutableStateOf(original?.hidden ?: false) }
     var audioPath by remember { mutableStateOf(original?.audioPath) }
+    var level by remember { mutableStateOf(original?.level ?: 1) }
+    val hotspot = remember(target) { vm.hotspotFor(target) }
+    var hotspotWidth by remember { mutableStateOf(hotspot?.width ?: 0.24f) }
+    var hotspotHeight by remember { mutableStateOf(hotspot?.height ?: 0.24f) }
     var recording by remember { mutableStateOf(false) }
     var pendingAudio by remember { mutableStateOf<String?>(null) }
 
@@ -93,6 +98,11 @@ fun EditCellDialog(vm: AacViewModel, target: EditTarget) {
     }
     val takePhoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
         bitmap?.let { imagePath = vm.media.saveBitmap(it) }
+    }
+    val pickScenePhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let { vm.media.importImage(it, maxSize = 1600) }?.let { path ->
+            linkTo = vm.createSceneBoard(label.ifBlank { "Scene" }, path)
+        }
     }
 
     fun startRecording() {
@@ -125,7 +135,28 @@ fun EditCellDialog(vm: AacViewModel, target: EditTarget) {
             linkTo = if (action == CellAction.FOLDER) linkTo else null,
             hidden = hidden,
             audioPath = audioPath,
+            level = level,
         )
+    }
+
+    fun save() {
+        val cell = build() ?: return
+        if (target is EditTarget.NewHotspot) {
+            vm.addNewHotspot(target, cell, hotspotWidth, hotspotHeight)
+            return
+        }
+        val spot = hotspot
+        if (spot != null && target is EditTarget.Grid && (spot.width != hotspotWidth || spot.height != hotspotHeight)) {
+            vm.updateHotspot(target.boardId, target.index) {
+                it.copy(
+                    width = hotspotWidth,
+                    height = hotspotHeight,
+                    x = it.x.coerceAtMost(1f - hotspotWidth),
+                    y = it.y.coerceAtMost(1f - hotspotHeight),
+                )
+            }
+        }
+        vm.saveCell(target, cell)
     }
 
     Dialog(onDismissRequest = { vm.editing = null }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -140,7 +171,7 @@ fun EditCellDialog(vm: AacViewModel, target: EditTarget) {
                         fontWeight = FontWeight.Bold,
                     )
                     Button(
-                        onClick = { build()?.let { vm.saveCell(target, it) } },
+                        onClick = { save() },
                         enabled = label.isNotBlank() && (action != CellAction.FOLDER || linkTo != null),
                     ) { Text("Save") }
                 }
@@ -217,6 +248,9 @@ fun EditCellDialog(vm: AacViewModel, target: EditTarget) {
                         ChipRow {
                             boards.forEach { b -> FilterChip(linkTo == b.id, { linkTo = b.id }, { Text(b.name) }) }
                             FilterChip(false, { linkTo = vm.createBoard(label.ifBlank { "New board" }) }, { Text("+ New board") })
+                            FilterChip(false, {
+                                pickScenePhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            }, { Text("+ New photo scene") })
                         }
                     } else {
                         SectionTitle("Word type (sets the color)")
@@ -254,6 +288,27 @@ fun EditCellDialog(vm: AacViewModel, target: EditTarget) {
                         }
                     }
 
+                    if (hotspot != null || target is EditTarget.NewHotspot) {
+                        SectionTitle("Spot size on the photo")
+                        Text("Width")
+                        Slider(hotspotWidth, { hotspotWidth = it }, valueRange = 0.08f..0.9f)
+                        Text("Height")
+                        Slider(hotspotHeight, { hotspotHeight = it }, valueRange = 0.08f..0.9f)
+                    }
+
+                    if (!isStrip) {
+                        SectionTitle("Shows at vocabulary level")
+                        ChipRow {
+                            (1..Cell.MAX_LEVEL).forEach { l ->
+                                FilterChip(level == l, { level = l }, { Text(if (l == Cell.MAX_LEVEL) "$l (all)" else "$l") })
+                            }
+                        }
+                        Text(
+                            "Lower levels hide this button in place; it reappears in the same spot.",
+                            fontSize = 12.sp, color = MaterialTheme.colorScheme.outline,
+                        )
+                    }
+
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text("Hide button", fontWeight = FontWeight.SemiBold)
@@ -264,7 +319,7 @@ fun EditCellDialog(vm: AacViewModel, target: EditTarget) {
 
                     if (original != null && target is EditTarget.Grid) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { vm.startMove(target) }) { Text("Move…") }
+                            if (hotspot == null) OutlinedButton(onClick = { vm.startMove(target) }) { Text("Move…") }
                             OutlinedButton(onClick = { vm.saveCell(target, null) }) {
                                 Icon(Icons.Default.Delete, null); Text("Delete")
                             }

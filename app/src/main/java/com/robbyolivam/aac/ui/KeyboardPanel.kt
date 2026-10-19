@@ -30,6 +30,8 @@ import com.robbyolivam.aac.data.KeyboardLayout
 private val qwerty = listOf("qwertyuiop", "asdfghjkl'", "zxcvbnm,.?")
 private val abc = listOf("abcdefghi", "jklmnopqr", "stuvwxyz'", "?!.,")
 
+fun keyboardRows(layout: KeyboardLayout): List<String> = if (layout == KeyboardLayout.QWERTY) qwerty else abc
+
 /** Big-key keyboard for spelling; word completions appear in the prediction row above. */
 @Composable
 fun KeyboardPanel(
@@ -39,8 +41,9 @@ fun KeyboardPanel(
     onSpace: () -> Unit,
     onBackspace: () -> Unit,
     modifier: Modifier = Modifier,
+    isScanned: (String, String) -> Boolean = { _, _ -> false },
 ) {
-    val rows = if (layout == KeyboardLayout.QWERTY) qwerty else abc
+    val rows = keyboardRows(layout)
     Column(modifier.padding(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Box(
             Modifier
@@ -59,16 +62,16 @@ fun KeyboardPanel(
                 maxLines = 1,
             )
         }
-        rows.forEach { row ->
+        rows.forEachIndexed { r, row ->
             Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 row.forEach { ch ->
-                    Key(ch.toString(), onClick = { onKey(ch.toString()) })
+                    Key(ch.toString(), scanned = isScanned("keys-$r", "key-$ch"), onClick = { onKey(ch.toString()) })
                 }
             }
         }
         Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Key("space", weight = 3f, onClick = onSpace)
-            Key("⌫", weight = 1.2f, onClick = onBackspace, description = "Delete letter") {
+            Key("space", weight = 3f, scanned = isScanned("keys-actions", "key-space"), onClick = onSpace)
+            Key("⌫", weight = 1.2f, scanned = isScanned("keys-actions", "key-delete"), onClick = onBackspace, description = "Delete letter") {
                 Icon(Icons.Default.Backspace, contentDescription = "Delete letter")
             }
         }
@@ -80,6 +83,7 @@ private fun RowScope.Key(
     label: String,
     weight: Float = 1f,
     description: String = label,
+    scanned: Boolean = false,
     onClick: () -> Unit,
     content: (@Composable () -> Unit)? = null,
 ) {
@@ -89,6 +93,7 @@ private fun RowScope.Key(
             .fillMaxHeight()
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
+            .then(if (scanned) Modifier.border(5.dp, ScanHighlight, RoundedCornerShape(8.dp)) else Modifier)
             .clickable(role = Role.Button, onClickLabel = description, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {

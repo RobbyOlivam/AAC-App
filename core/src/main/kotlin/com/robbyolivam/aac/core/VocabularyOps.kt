@@ -49,22 +49,22 @@ val Vocabulary.rootBoardIds: List<String> get() = listOf(homeBoardId, phrasesBoa
  * Finds every visible word cell matching [query] (case-insensitive prefix on any word of the
  * label or spoken text) with the shortest folder path from a root board.
  */
-fun Vocabulary.search(query: String, limit: Int = 30): List<WordLocation> {
+fun Vocabulary.search(query: String, limit: Int = 30, level: Int = Cell.MAX_LEVEL): List<WordLocation> {
     val q = query.trim().lowercase()
     if (q.isEmpty()) return emptyList()
-    val paths = shortestPaths()
+    val paths = shortestPaths(level)
     val results = mutableListOf<Pair<Int, WordLocation>>()
     for (board in boards) {
         val prefix = paths[board.id] ?: continue
-        board.cells.forEachIndexed { index, cell ->
-            if (cell == null || cell.hidden || cell.action == CellAction.FOLDER) return@forEachIndexed
+        board.indexedCells().forEach { (index, cell) ->
+            if (!cell.visibleAt(level) || cell.action == CellAction.FOLDER) return@forEach
             val label = cell.label.lowercase()
             val spoken = cell.text.lowercase()
             val rank = when {
                 label == q || spoken == q -> 0
                 label.startsWith(q) || spoken.startsWith(q) -> 1
                 label.split(' ').any { it.startsWith(q) } || spoken.split(' ').any { it.startsWith(q) } -> 2
-                else -> return@forEachIndexed
+                else -> return@forEach
             }
             results += (rank * 100 + prefix.size) to WordLocation(cell, prefix + PathStep(board.id, index))
         }
@@ -73,7 +73,7 @@ fun Vocabulary.search(query: String, limit: Int = 30): List<WordLocation> {
 }
 
 /** Breadth-first search from the root boards; value is the folder steps needed to reach each board. */
-fun Vocabulary.shortestPaths(): Map<String, List<PathStep>> {
+fun Vocabulary.shortestPaths(level: Int = Cell.MAX_LEVEL): Map<String, List<PathStep>> {
     val paths = LinkedHashMap<String, List<PathStep>>()
     val queue = ArrayDeque<String>()
     for (root in rootBoardIds) {
@@ -84,8 +84,8 @@ fun Vocabulary.shortestPaths(): Map<String, List<PathStep>> {
     }
     while (queue.isNotEmpty()) {
         val board = board(queue.removeFirst()) ?: continue
-        board.cells.forEachIndexed { index, cell ->
-            val target = cell?.takeIf { it.action == CellAction.FOLDER && !it.hidden }?.linkTo ?: return@forEachIndexed
+        board.indexedCells().forEach { (index, cell) ->
+            val target = cell.takeIf { it.action == CellAction.FOLDER && it.visibleAt(level) }?.linkTo ?: return@forEach
             if (target !in paths && board(target) != null) {
                 paths[target] = paths.getValue(board.id) + PathStep(board.id, index)
                 queue += target
@@ -96,14 +96,14 @@ fun Vocabulary.shortestPaths(): Map<String, List<PathStep>> {
 }
 
 /** Finds a cell by its label or spoken text (case-insensitive), preferring the shortest path. */
-fun Vocabulary.findWord(word: String): WordLocation? {
+fun Vocabulary.findWord(word: String, level: Int = Cell.MAX_LEVEL): WordLocation? {
     val w = word.trim().lowercase()
-    return search(w, limit = 50).firstOrNull { it.cell.label.lowercase() == w || it.cell.text.lowercase() == w }
+    return search(w, limit = 50, level = level).firstOrNull { it.cell.label.lowercase() == w || it.cell.text.lowercase() == w }
 }
 
 /** Every visible word cell, for prediction and lookup. */
-fun Vocabulary.allWordCells(): List<Cell> =
-    boards.flatMap { it.cells.filterNotNull() }.filter { it.action != CellAction.FOLDER && !it.hidden }
+fun Vocabulary.allWordCells(level: Int = Cell.MAX_LEVEL): List<Cell> =
+    boards.flatMap { b -> b.indexedCells().map { it.second } }.filter { it.action != CellAction.FOLDER && it.visibleAt(level) }
 
 /** Applies whole-word pronunciation overrides before text goes to the speech engine. */
 fun Vocabulary.applyPronunciations(text: String): String {
@@ -111,6 +111,20 @@ fun Vocabulary.applyPronunciations(text: String): String {
     val lookup = pronunciations.mapKeys { it.key.lowercase() }
     return Regex("[\\p{L}\\p{N}']+").replace(text) { m -> lookup[m.value.lowercase()] ?: m.value }
 }
+
+fun Vocabulary.resizeBoard(boardId: String, rows: Int, cols: Int): Vocabulary =
+    updateBoard(boardId) { it.resized(rows, cols) }
+
+fun Vocabulary.addHotspot(boardId: String, hotspot: Hotspot): Vocabulary =
+    updateBoard(boardId) { b -> b.scene?.let { s -> b.copy(scene = s.copy(hotspots = s.hotspots + hotspot)) } ?: b }
+
+fun Vocabulary.updateHotspot(boardId: String, index: Int, transform: (Hotspot) -> Hotspot): Vocabulary =
+    updateBoard(boardId) { b ->
+        b.scene?.let { s -> b.copy(scene = s.copy(hotspots = s.hotspots.toMutableList().also { it[index] = transform(it[index]) })) } ?: b
+    }
+
+fun newSceneBoard(id: String, name: String, imagePath: String): Board =
+    Board(id = id, name = name, rows = 0, cols = 0, cells = emptyList(), scene = Scene(imagePath))
 
 fun newBoard(id: String, name: String, rows: Int, cols: Int): Board =
     Board(id = id, name = name, rows = rows, cols = cols, cells = List(rows * cols) { null })

@@ -49,10 +49,10 @@ class VocabularyStore(private val context: Context) {
 
     private fun loadVocabulary(): Vocabulary {
         if (vocabFile.exists()) {
-            runCatching { return VocabularyJson.decode(vocabFile.readText()) }
+            runCatching { return DefaultVocabulary.migrate(VocabularyJson.decode(vocabFile.readText())) }
                 .onFailure { Log.e(TAG, "Vocabulary file unreadable; trying latest snapshot", it) }
             latestSnapshot()?.let { snap ->
-                runCatching { return VocabularyJson.decode(snap.readText()) }
+                runCatching { return DefaultVocabulary.migrate(VocabularyJson.decode(snap.readText())) }
             }
         }
         return DefaultVocabulary.create()
@@ -117,7 +117,7 @@ class VocabularyStore(private val context: Context) {
     private fun latestSnapshot(): File? = snapshots().firstOrNull()
 
     fun restoreSnapshot(file: File): Boolean =
-        runCatching { replace(VocabularyJson.decode(file.readText())) }.isSuccess
+        runCatching { replace(DefaultVocabulary.migrate(VocabularyJson.decode(file.readText()))) }.isSuccess
 
     fun resetToDefault() = replace(DefaultVocabulary.create())
 

@@ -3,6 +3,8 @@ package com.robbyolivam.aac
 import android.app.Application
 import com.robbyolivam.aac.data.BackupManager
 import com.robbyolivam.aac.data.MediaFiles
+import com.robbyolivam.aac.data.OpenBoardFiles
+import com.robbyolivam.aac.data.PdfExporter
 import com.robbyolivam.aac.data.SettingsStore
 import com.robbyolivam.aac.data.VocabularyStore
 import com.robbyolivam.aac.speech.AudioRecorder
@@ -22,6 +24,10 @@ class AacApplication : Application() {
         private set
     lateinit var backup: BackupManager
         private set
+    lateinit var openBoard: OpenBoardFiles
+        private set
+    lateinit var pdf: PdfExporter
+        private set
 
     override fun onCreate() {
         super.onCreate()
@@ -31,5 +37,7 @@ class AacApplication : Application() {
         speaker = Speaker(this)
         recorder = AudioRecorder(this)
         backup = BackupManager(vocabulary, settings, media)
+        openBoard = OpenBoardFiles(vocabulary, media)
+        pdf = PdfExporter(vocabulary)
     }
 }

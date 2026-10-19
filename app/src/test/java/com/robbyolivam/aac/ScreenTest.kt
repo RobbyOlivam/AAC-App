@@ -1,0 +1,208 @@
+package com.robbyolivam.aac
+
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.github.takahirom.roborazzi.captureRoboImage
+import com.robbyolivam.aac.core.Cell
+import com.robbyolivam.aac.core.CellAction
+import com.robbyolivam.aac.core.DefaultVocabulary
+import com.robbyolivam.aac.core.Hotspot
+import com.robbyolivam.aac.core.Symbol
+import com.robbyolivam.aac.core.WordType
+import com.robbyolivam.aac.core.addBoard
+import com.robbyolivam.aac.core.addHotspot
+import com.robbyolivam.aac.core.newSceneBoard
+import com.robbyolivam.aac.core.setCell
+import com.robbyolivam.aac.data.ScanMode
+import com.robbyolivam.aac.data.SettingsLock
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+
+private const val PIXEL = "w412dp-h915dp-port-xxhdpi"
+private const val PIXEL_LAND = "w915dp-h412dp-land-xxhdpi"
+private const val TABLET = "w800dp-h1280dp-port-xhdpi"
+private const val TABLET_LAND = "w1280dp-h800dp-land-xhdpi"
+
+/**
+ * Drives the real app on the JVM (Robolectric) and saves screenshots of each state.
+ * `./gradlew :app:recordRoborazziDebug` writes the PNGs to app/build/screenshots/;
+ * a plain test run still checks every assertion.
+ */
+@RunWith(AndroidJUnit4::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(qualifiers = PIXEL)
+class ScreenTest {
+    @get:Rule
+    val compose = createAndroidComposeRule<MainActivity>()
+
+    /** Applies state changes (settings, vocabulary), then reopens the screen so it starts fresh with them. */
+    private fun launch(setup: () -> Unit = {}) {
+        setup()
+        compose.activityRule.scenario.recreate()
+        compose.waitForIdle()
+    }
+
+    private val app get() = ApplicationProvider.getApplicationContext<AacApplication>()
+
+    private fun shot(name: String) = compose.onRoot().captureRoboImage("build/screenshots/$name.png")
+
+    private fun hasText(text: String, substring: Boolean = false) =
+        compose.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty()
+
+    @Test
+    fun coreBoardPhone() {
+        launch()
+        shot("phone_core")
+    }
+
+    @Test
+    @Config(qualifiers = PIXEL_LAND)
+    fun coreBoardPhoneLandscape() {
+        launch()
+        shot("phone_land_core")
+    }
+
+    @Test
+    @Config(qualifiers = TABLET)
+    fun coreBoardTablet() {
+        launch()
+        shot("tablet_core")
+    }
+
+    @Test
+    @Config(qualifiers = TABLET_LAND)
+    fun coreBoardTabletLandscape() {
+        launch()
+        shot("tablet_land_core")
+    }
+
+    @Test
+    fun folderShowsInAppBackAndWordReturnsHome() {
+        launch()
+        compose.onNodeWithContentDescription("Food folder").performClick()
+        assertTrue("Back bar shown in folder", hasText("Back to Core", substring = true))
+        shot("phone_food_folder")
+        compose.onNodeWithContentDescription("pizza").performClick()
+        compose.waitForIdle()
+        assertTrue("Returned to core after picking a word", !hasText("Back to Core", substring = true))
+        assertTrue("pizza is in the message", hasText("pizza"))
+        shot("phone_after_pizza")
+    }
+
+    @Test
+    fun backBarGoesBack() {
+        launch()
+        compose.onNodeWithContentDescription("Food folder").performClick()
+        compose.onNodeWithText("Back to Core", substring = true).performClick()
+        compose.waitForIdle()
+        assertTrue(!hasText("Back to Core", substring = true))
+        compose.onNodeWithContentDescription("want").assertExists()
+    }
+
+    @Test
+    @Config(qualifiers = PIXEL_LAND)
+    fun folderLandscape() {
+        launch()
+        compose.onNodeWithContentDescription("Feelings folder").performClick()
+        assertTrue(hasText("Back to Core", substring = true))
+        shot("phone_land_feelings_folder")
+    }
+
+    @Test
+    fun keyboardHasBackAndTypes() {
+        launch()
+        compose.onNodeWithContentDescription("ABC").performClick()
+        compose.onNodeWithText("h").performClick()
+        compose.onNodeWithText("i").performClick()
+        assertTrue(hasText("Back to", substring = true))
+        shot("phone_keyboard")
+    }
+
+    @Test
+    @Config(qualifiers = PIXEL_LAND)
+    fun keyboardLandscape() {
+        launch()
+        compose.onNodeWithContentDescription("ABC").performClick()
+        shot("phone_land_keyboard")
+    }
+
+    @Test
+    fun stepScanningSelectsAWord() {
+        launch { app.settings.update { it.copy(scanMode = ScanMode.STEP) } }
+        val selectSide: () -> Unit = {
+            compose.onRoot().performTouchInput { click(Offset(width * 0.8f, height * 0.5f)) }
+            compose.waitForIdle()
+        }
+        selectSide() // start: first row lights up
+        shot("phone_scan_row")
+        selectSide() // into the row: first button
+        shot("phone_scan_item")
+        selectSide() // pick "I"
+        assertTrue("I was added to the message", !hasText("Tap words to build a message"))
+        assertTrue("scanning banner shown", hasText("Scanning", substring = true))
+    }
+
+    @Test
+    fun highContrastLevelOne() {
+        launch { app.settings.update { it.copy(highContrast = true, vocabularyLevel = 1) } }
+        shot("phone_contrast_level1")
+        assertTrue(!hasText("who"))
+    }
+
+    @Test
+    fun settingsAndEditMode() {
+        launch { app.settings.update { it.copy(settingsLock = SettingsLock.NONE) } }
+        compose.onNodeWithContentDescription("Settings").performClick()
+        assertTrue(hasText("Back to talking", substring = true))
+        shot("phone_settings")
+        compose.onNodeWithText("Edit boards", substring = true).performClick()
+        compose.waitForIdle()
+        assertTrue(hasText("Editing", substring = true))
+        shot("phone_edit_mode")
+    }
+
+    @Test
+    @Config(qualifiers = PIXEL_LAND)
+    fun photoScene() {
+        val bitmap = Bitmap.createBitmap(800, 600, Bitmap.Config.ARGB_8888)
+        Canvas(bitmap).apply {
+            drawColor(Color.rgb(135, 206, 235))
+            drawRect(0f, 420f, 800f, 600f, Paint().apply { color = Color.rgb(76, 175, 80) })
+            drawRect(120f, 220f, 300f, 430f, Paint().apply { color = Color.rgb(121, 85, 72) })
+        }
+        val path = app.media.saveBitmap(bitmap, maxSize = 800)
+        launch { app.vocabulary.edit { v ->
+            v.addBoard(newSceneBoard("scene-test", "Park", path))
+                .addHotspot("scene-test", Hotspot(0.12f, 0.35f, 0.3f, 0.4f, Cell("s1", "slide", type = WordType.NOUN)))
+                .addHotspot("scene-test", Hotspot(0.6f, 0.62f, 0.3f, 0.3f, Cell("s2", "grass", type = WordType.NOUN)))
+                .setCell(
+                    DefaultVocabulary.HOME, 47,
+                    Cell("park", "Park", symbol = Symbol(emoji = "🏞️"), type = WordType.FOLDER, action = CellAction.FOLDER, linkTo = "scene-test"),
+                )
+        } }
+        compose.onNodeWithContentDescription("Park folder").performClick()
+        compose.onNodeWithContentDescription("slide").performClick()
+        compose.waitForIdle()
+        shot("phone_land_scene")
+        assertTrue("slide added", hasText("slide"))
+        assertEquals("scene-test", app.vocabulary.vocabulary.value.board("scene-test")?.id)
+    }
+}

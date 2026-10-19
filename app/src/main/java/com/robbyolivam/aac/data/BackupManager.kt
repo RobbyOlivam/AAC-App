@@ -38,9 +38,9 @@ class BackupManager(
                 if (!entry.isDirectory && safe) entries[name] = zip.readBytes()
             }
         }
-        val vocabulary = VocabularyJson.decode(
+        val vocabulary = com.robbyolivam.aac.core.DefaultVocabulary.migrate(VocabularyJson.decode(
             entries[VOCAB]?.decodeToString() ?: throw IllegalArgumentException("Not an AAC backup file"),
-        )
+        ))
         entries.filterKeys { it.startsWith("media/") }.forEach { (name, bytes) ->
             store.resolve(name).also { it.parentFile?.mkdirs() }.writeBytes(bytes)
         }

@@ -194,3 +194,123 @@ class GrammarHelperTest {
         assertNull(GrammarHelper.polish(t("I" to WordType.PRONOUN, "like" to WordType.VERB, "it" to WordType.PRONOUN)))
     }
 }
+
+class LevelsAndResizeTest {
+    private val vocab = DefaultVocabulary.create()
+
+    @Test
+    fun levelsHideWithoutMoving() {
+        val home = vocab.home
+        val level1 = home.cells.count { it?.visibleAt(1) == true }
+        assertEquals(12, level1)
+        assertTrue(home.cells.count { it?.visibleAt(2) == true } > level1)
+        assertEquals(48, home.cells.count { it?.visibleAt(Cell.MAX_LEVEL) == true })
+        // Words hidden at a level are not found by search at that level.
+        assertNull(vocab.findWord("who", level = 1))
+        assertNotNull(vocab.findWord("who"))
+        assertNull(vocab.findWord("pizza", level = 1), "Food folder is level 2")
+        assertNotNull(vocab.findWord("pizza", level = 2))
+    }
+
+    @Test
+    fun migrationAddsLevels() {
+        val old = vocab.copy(version = 1, boards = vocab.boards.map { b -> b.copy(cells = b.cells.map { it?.copy(level = 1) }) })
+        val migrated = DefaultVocabulary.migrate(old)
+        assertEquals(Vocabulary.CURRENT_VERSION, migrated.version)
+        assertEquals(vocab.home, migrated.home)
+    }
+
+    @Test
+    fun resizeKeepsRowAndColumn() {
+        val board = vocab.home
+        val bigger = board.resized(10, 8)
+        assertEquals(board.cellAt(3, 2), bigger.cellAt(3, 2))
+        assertEquals(board.cellAt(7, 5), bigger.cellAt(7, 5))
+        assertEquals(0, board.cellsLostByResize(10, 8))
+        assertEquals(board.cols * 2, board.cellsLostByResize(6, board.cols))
+        assertEquals(board.cellAt(1, 1), board.resized(4, 3).cellAt(1, 1))
+    }
+
+    @Test
+    fun sceneHotspotsAreSearchable() {
+        val cell = Cell("seesaw", "seesaw", type = WordType.NOUN)
+        val v = vocab.addBoard(newSceneBoard("park-scene", "Park", "media/park.jpg"))
+            .addHotspot("park-scene", Hotspot(0.1f, 0.2f, 0.3f, 0.3f, cell))
+            .setCell(DefaultVocabulary.HOME, 0, Cell("f", "Park", type = WordType.FOLDER, action = CellAction.FOLDER, linkTo = "park-scene"))
+        val found = assertNotNull(v.findWord("seesaw"))
+        assertEquals(PathStep("park-scene", 0), found.target)
+        val removed = v.setCell("park-scene", 0, null)
+        assertTrue(removed.board("park-scene")!!.scene!!.hotspots.isEmpty())
+    }
+}
+
+class OpenBoardFormatTest {
+    @Test
+    fun roundTripKeepsBoardsPositionsAndLinks() {
+        val vocab = DefaultVocabulary.create()
+        val files = OpenBoardFormat.export(vocab) { null }
+        assertTrue("manifest.json" in files)
+        val imported = OpenBoardFormat.import(files, fallbackStrip = emptyList()).vocabulary
+        assertEquals(vocab.homeBoardId, imported.homeBoardId)
+        assertEquals(vocab.phrasesBoardId, imported.phrasesBoardId)
+        assertEquals(vocab.quickStrip.map { it.label to it.text }, imported.quickStrip.map { it.label to it.text })
+        for (board in vocab.boards) {
+            val other = assertNotNull(imported.board(board.id))
+            assertEquals(board.rows to board.cols, other.rows to other.cols)
+            board.cells.zip(other.cells).forEach { (a, b) ->
+                assertEquals(a?.label, b?.label)
+                assertEquals(a?.linkTo, b?.linkTo)
+                assertEquals(a?.type, b?.type)
+                assertEquals(a?.symbol?.emoji, b?.symbol?.emoji)
+                assertEquals(a?.level, b?.level)
+                assertEquals(a?.action, b?.action)
+            }
+        }
+    }
+
+    @Test
+    fun importsForeignBoardWithEmbeddedImage() {
+        val png = byteArrayOf(1, 2, 3)
+        val b64 = java.util.Base64.getEncoder().encodeToString(png)
+        val home = """
+            {"format":"open-board-0.1","id":"1_2","name":"Home",
+             "buttons":[
+               {"id":"1","label":"want","background_color":"rgb(0, 255, 0)"},
+               {"id":"2","label":"Animals","load_board":{"path":"boards/animals.obf"}},
+               {"id":"3","label":"happy","image_id":"i1","background_color":"rgb(0,0,255)"},
+               {"id":"4","label":"web","image_id":"i2"}],
+             "images":[{"id":"i1","data":"data:image/png;base64,$b64","content_type":"image/png"},
+                       {"id":"i2","url":"https://example.com/x.png"}],
+             "grid":{"rows":2,"columns":2,"order":[["1","2"],["3",null]]}}
+        """.trimIndent()
+        val animals = """
+            {"format":"open-board-0.1","id":"animals","name":"Animals",
+             "buttons":[{"id":"a","label":"dog","vocalization":"I see a dog"}],
+             "grid":{"rows":1,"columns":3,"order":[[null,"a",null]]}}
+        """.trimIndent()
+        val manifest = """{"format":"open-board-0.1","root":"boards/home.obf","paths":{"boards":{"1_2":"boards/home.obf","animals":"boards/animals.obf"}}}"""
+        val result = OpenBoardFormat.import(
+            mapOf(
+                "manifest.json" to manifest.toByteArray(),
+                "boards/home.obf" to home.toByteArray(),
+                "boards/animals.obf" to animals.toByteArray(),
+            ),
+            fallbackStrip = DefaultVocabulary.create().quickStrip,
+        )
+        val v = result.vocabulary
+        val homeBoard = v.home
+        assertEquals("Home", homeBoard.name)
+        assertEquals(WordType.VERB, homeBoard.cells[0]!!.type)
+        assertEquals(CellAction.FOLDER, homeBoard.cells[1]!!.action)
+        assertEquals("animals", homeBoard.cells[1]!!.linkTo)
+        assertEquals(WordType.ADJECTIVE, homeBoard.cells[2]!!.type)
+        val imagePath = assertNotNull(homeBoard.cells[2]!!.symbol.imagePath)
+        assertTrue(png.contentEquals(result.media.getValue(imagePath)))
+        assertNull(homeBoard.cells[3])
+        assertEquals(1, result.skippedImages)
+        val dog = v.board("animals")!!.cells[1]!!
+        assertEquals("I see a dog", dog.text)
+        assertNotNull(v.board(v.phrasesBoardId))
+        assertNotNull(v.findWord("dog"))
+    }
+}
