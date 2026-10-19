@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -28,6 +29,7 @@ import com.robbyolivam.aac.core.newSceneBoard
 import com.robbyolivam.aac.core.setCell
 import com.robbyolivam.aac.data.ScanMode
 import com.robbyolivam.aac.data.SettingsLock
+import com.robbyolivam.aac.data.ThemeMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -177,6 +179,14 @@ class ScreenTest {
         compose.waitForIdle()
         assertTrue(hasText("Editing", substring = true))
         shot("phone_edit_mode")
+    }
+
+    @Test
+    fun settingsDarkModeIsReadable() {
+        launch { app.settings.update { it.copy(settingsLock = SettingsLock.NONE, themeMode = ThemeMode.DARK) } }
+        compose.onNodeWithContentDescription("Settings").performClick()
+        compose.onNodeWithText("Vibrate on tap").performScrollTo()
+        shot("phone_settings_dark")
     }
 
     @Test
