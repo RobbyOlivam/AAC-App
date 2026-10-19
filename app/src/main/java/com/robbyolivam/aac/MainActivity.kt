@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -62,16 +63,19 @@ class MainActivity : ComponentActivity() {
                 if (Build.VERSION.SDK_INT >= 27) setShowWhenLocked(settings.showOnLockScreen)
             }
             AacTheme(settings.themeMode) {
-                Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).safeDrawingPadding()) {
-                    when (vm.screen) {
-                        Screen.MAIN -> {
-                            // The system back gesture mirrors the in-app Back button, but nobody needs it.
-                            BackHandler(enabled = vm.panel == Panel.KEYBOARD || vm.currentBoardId != vm.vocabulary.value.homeBoardId) {
-                                vm.goBack()
+                // Surface (not a plain Box) so text picks up the theme's on-background color in dark mode.
+                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    Box(Modifier.fillMaxSize().safeDrawingPadding()) {
+                        when (vm.screen) {
+                            Screen.MAIN -> {
+                                // The system back gesture mirrors the in-app Back button, but nobody needs it.
+                                BackHandler(enabled = vm.panel == Panel.KEYBOARD || vm.currentBoardId != vm.vocabulary.value.homeBoardId) {
+                                    vm.goBack()
+                                }
+                                CommunicationScreen(vm)
                             }
-                            CommunicationScreen(vm)
+                            Screen.SETTINGS -> SettingsScreen(vm)
                         }
-                        Screen.SETTINGS -> SettingsScreen(vm)
                     }
                 }
             }

@@ -44,7 +44,13 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
         if (tts.language == null) tts.language = Locale.getDefault()
         _voices.value = runCatching {
             tts.voices.orEmpty()
-                .filter { !it.isNetworkConnectionRequired && it.locale.language == Locale.getDefault().language }
+                .filter { v ->
+                    // Only voices that work offline right now. A "not installed" voice makes the
+                    // engine download in the background and speak with a fallback (or not at all).
+                    !v.isNetworkConnectionRequired &&
+                        TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED !in v.features.orEmpty() &&
+                        v.locale.language == Locale.getDefault().language
+                }
                 .sortedWith(compareBy({ it.locale.toString() }, { it.name }))
         }.getOrDefault(emptyList())
         pending?.invoke()
@@ -57,12 +63,31 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
         val action = {
             tts.setSpeechRate(rate)
             tts.setPitch(pitch)
-            val voice = voiceName?.let { name -> _voices.value.firstOrNull { it.name == name } }
-            if (voice != null && tts.voice?.name != voice.name) tts.voice = voice
+            applyVoice(voiceName)
             tts.speak(text, TextToSpeech.QUEUE_FLUSH, Bundle(), "u${utteranceId++}")
             Unit
         }
         if (ready) action() else pending = action
+    }
+
+    /** Name of the voice the engine was last told to use; null = engine default. */
+    private var appliedVoice: String? = null
+    private var voiceApplied = false
+
+    /**
+     * Applies [voiceName] (null = default) before every utterance. If the chosen voice can't be
+     * used, falls back to the default voice so the app never goes silent.
+     */
+    private fun applyVoice(voiceName: String?) {
+        if (voiceApplied && voiceName == appliedVoice) return
+        val voice = voiceName?.let { name -> _voices.value.firstOrNull { it.name == name } }
+        val ok = voice != null && tts.setVoice(voice) == TextToSpeech.SUCCESS
+        if (!ok) {
+            val default = runCatching { tts.defaultVoice }.getOrNull()
+            if (default == null || tts.setVoice(default) != TextToSpeech.SUCCESS) tts.language = Locale.getDefault()
+        }
+        appliedVoice = if (ok) voiceName else null
+        voiceApplied = true
     }
 
     fun playFile(file: File) {
