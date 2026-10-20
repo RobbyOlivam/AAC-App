@@ -334,3 +334,42 @@ class OpenBoardFormatTest {
         assertNotNull(v.findWord("dog"))
     }
 }
+
+class WavTest {
+    private fun wav(sampleRate: Int, samples: ShortArray, extraChunk: Boolean = false): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        fun int16(v: Int) { out.write(v and 0xFF); out.write((v shr 8) and 0xFF) }
+        fun int32(v: Int) { int16(v and 0xFFFF); int16((v shr 16) and 0xFFFF) }
+        out.write("RIFF".toByteArray()); int32(0); out.write("WAVE".toByteArray())
+        out.write("fmt ".toByteArray()); int32(16); int16(1); int16(1); int32(sampleRate); int32(sampleRate * 2); int16(2); int16(16)
+        if (extraChunk) { out.write("LIST".toByteArray()); int32(3); out.write(byteArrayOf(1, 2, 3, 0)) }
+        out.write("data".toByteArray()); int32(samples.size * 2)
+        samples.forEach { int16(it.toInt()) }
+        return out.toByteArray()
+    }
+
+    @Test
+    fun parsesTtsOutput() {
+        val pcm = assertNotNull(Wav.parse(wav(22050, shortArrayOf(1, -2, 300), extraChunk = true)))
+        assertEquals(22050, pcm.sampleRate)
+        assertEquals(1, pcm.channels)
+        assertEquals(3, pcm.frames)
+        assertEquals(-2, (pcm.data[2].toInt() and 0xFF) or (pcm.data[3].toInt() shl 8))
+    }
+
+    @Test
+    fun rejectsNonWav() {
+        assertNull(Wav.parse("hello world, not audio".toByteArray()))
+        assertNull(Wav.parse(ByteArray(0)))
+    }
+
+    @Test
+    fun voiceAgeKeepsSpeedAndRaisesPitch() {
+        for (age in VoiceAge.entries) {
+            // Playback runs `formant` times faster, so the result must match what was asked for.
+            assertEquals(1.0f, age.engineRate(1.0f) * age.formant, 1e-4f)
+            assertEquals(age.pitch, age.enginePitch(1.0f) * age.formant, 1e-4f)
+        }
+        assertTrue(VoiceAge.KID.pitch > VoiceAge.TEEN.pitch && VoiceAge.TEEN.pitch > VoiceAge.ADULT.pitch)
+    }
+}

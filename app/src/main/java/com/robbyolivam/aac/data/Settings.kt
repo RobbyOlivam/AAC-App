@@ -1,6 +1,7 @@
 package com.robbyolivam.aac.data
 
 import android.content.Context
+import com.robbyolivam.aac.core.VoiceAge
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,6 +35,8 @@ data class Settings(
     val speechRate: Float = 1.0f,
     val pitch: Float = 1.0f,
     val voiceName: String? = null,
+    /** Makes any voice sound like a teen or a kid. */
+    val voiceAge: VoiceAge = VoiceAge.ADULT,
     val speakOnSelect: Boolean = true,
     val speakLettersWhileTyping: Boolean = false,
     // Touch access

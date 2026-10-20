@@ -54,6 +54,16 @@ The screen tests drive the real app on the JVM (Robolectric) on a Pixel-sized an
 ./gradlew :app:installDebug   # install on a connected phone (USB debugging on)
 ```
 
+## Phase 3 additions
+
+| Area | Features |
+|---|---|
+| Symbols | **Mulberry** (3,430 AAC symbols) and **OpenMoji** (1,914) bundled offline, CC BY-SA 4.0. Every starter word has a picture; search the library from the button editor. Settings → Symbols switches back to the phone's emoji. Credits in Settings |
+| Vocabulary | ~650 starter words. A 7th core column holds 8 new folders: Body, School, Animals, Activities, Little words, More actions, Health, Weather. Existing boards are upgraded without moving any button |
+| Voice age | **Adult / Teen / Kid** for any installed voice (Settings → Voice). The voice is rendered and played back faster with the engine slowed to match, which raises pitch and vocal-tract size without changing speed. Rendered words are cached so repeats are instant |
+
+Symbol assets are rebuilt with `scripts/build-symbols.py` (see the script header).
+
 ## Project layout
 
 ```
@@ -76,4 +86,4 @@ app/   Android app (Jetpack Compose)
 
 ## Next steps (from the roadmap)
 
-Gemini Nano "expand my words" (on-device), bundled kid/teen voices, partner "ghost modeling" app, Listen mode, usage reports for SLPs, Wear OS companion, then iOS/web via Kotlin Multiplatform.
+Gemini Nano "expand my words" (on-device), downloadable neural voices (Piper/Kokoro via sherpa-onnx), partner "ghost modeling" app, Listen mode, usage reports for SLPs, Wear OS companion, then iOS/web via Kotlin Multiplatform.

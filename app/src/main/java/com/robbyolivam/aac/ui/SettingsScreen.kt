@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.robbyolivam.aac.core.VoiceAge
 import com.robbyolivam.aac.data.KeyboardLayout
 import com.robbyolivam.aac.data.OrientationMode
 import com.robbyolivam.aac.data.ScanMode
@@ -167,11 +168,24 @@ fun SettingsScreen(vm: AacViewModel) {
                     voices.forEach { voice ->
                         FilterChip(settings.voiceName == voice.name, {
                             update { it.copy(voiceName = voice.name) }
-                            vm.speaker.speak("Hi, this is my voice", settings.speechRate, settings.pitch, voice.name)
+                            vm.speaker.speak("Hi, this is my voice", settings.speechRate, settings.pitch, voice.name, settings.voiceAge)
                         }, { Text(voice.name.removePrefix("${voice.locale.language}-").take(28)) })
                     }
                 }
             }
+            Text("Voice age", fontWeight = FontWeight.SemiBold)
+            ChipFlow {
+                VoiceAge.entries.forEach { age ->
+                    FilterChip(settings.voiceAge == age, {
+                        update { it.copy(voiceAge = age) }
+                        vm.speaker.speak("Hi, this is my voice", settings.speechRate, settings.pitch, settings.voiceName, age)
+                    }, { Text(age.label) })
+                }
+            }
+            Text(
+                "Teen and Kid make any voice sound younger. They sound most natural starting from a higher (often female) voice.",
+                style = MaterialTheme.typography.bodySmall,
+            )
             OutlinedButton(onClick = { vm.speak("Hello! This is how I sound.") }) { Text("Test voice") }
             ToggleSetting("Speak each word when tapped", settings.speakOnSelect) { v -> update { it.copy(speakOnSelect = v) } }
             ToggleSetting("Speak letters and words while typing", settings.speakLettersWhileTyping) { v -> update { it.copy(speakLettersWhileTyping = v) } }

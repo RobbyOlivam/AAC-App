@@ -210,6 +210,16 @@ class ScreenTest {
     }
 
     @Test
+    fun voiceAgeSetting() {
+        launch { app.settings.update { it.copy(settingsLock = SettingsLock.NONE) } }
+        compose.onNodeWithContentDescription("Settings").performClick()
+        compose.onNodeWithText("Kid").performScrollTo().performClick()
+        compose.waitForIdle()
+        assertEquals(com.robbyolivam.aac.core.VoiceAge.KID, app.settings.settings.value.voiceAge)
+        shot("phone_settings_voice_age")
+    }
+
+    @Test
     @Config(qualifiers = PIXEL_LAND)
     fun photoScene() {
         val bitmap = Bitmap.createBitmap(800, 600, Bitmap.Config.ARGB_8888)

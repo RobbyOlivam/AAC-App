@@ -274,7 +274,7 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
 
     fun speak(text: String) {
         val s = s
-        speaker.speak(v.applyPronunciations(text), s.speechRate, s.pitch, s.voiceName)
+        speaker.speak(v.applyPronunciations(text), s.speechRate, s.pitch, s.voiceName, s.voiceAge)
     }
 
     fun backspace() {
