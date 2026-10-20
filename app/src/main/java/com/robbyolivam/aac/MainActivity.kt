@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -25,6 +26,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.robbyolivam.aac.data.OrientationMode
 import com.robbyolivam.aac.ui.AacViewModel
 import com.robbyolivam.aac.ui.CommunicationScreen
+import com.robbyolivam.aac.ui.LocalSymbolLibrary
+import com.robbyolivam.aac.ui.LocalSymbolStyle
 import com.robbyolivam.aac.ui.Panel
 import com.robbyolivam.aac.ui.Screen
 import com.robbyolivam.aac.ui.SettingsScreen
@@ -63,6 +66,10 @@ class MainActivity : ComponentActivity() {
                 if (Build.VERSION.SDK_INT >= 27) setShowWhenLocked(settings.showOnLockScreen)
             }
             AacTheme(settings.themeMode) {
+              CompositionLocalProvider(
+                  LocalSymbolLibrary provides vm.symbols,
+                  LocalSymbolStyle provides settings.symbolStyle,
+              ) {
                 // Surface (not a plain Box) so text picks up the theme's on-background color in dark mode.
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     Box(Modifier.fillMaxSize().safeDrawingPadding()) {
@@ -78,6 +85,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+              }
             }
         }
     }

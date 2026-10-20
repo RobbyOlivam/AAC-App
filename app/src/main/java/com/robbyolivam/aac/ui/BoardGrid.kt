@@ -268,7 +268,7 @@ fun CellButton(
                 val textWidth = if (wide) maxWidth - maxHeight - 8.dp else maxWidth - 4.dp
                 val longestWord = cell.label.split(' ').maxOf { it.length }.coerceAtLeast(3)
                 val byWidth = textWidth / (0.62f * longestWord)
-                minOf(byHeight, byWidth).toSp().value.coerceIn(if (compact) 10f else 12f, 26f).sp * settings.labelScale
+                minOf(byHeight, byWidth).toSp().value.coerceIn(if (compact) 8f else 9.5f, 26f).sp * settings.labelScale
             }
             if (wide) {
                 Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
@@ -316,24 +316,14 @@ fun CellButton(
     }
 }
 
-/** The picture (photo or emoji) for a cell, sized to whatever space it's given. */
+/** The picture for a cell (photo, library symbol or emoji), sized to whatever space it's given. */
 @Composable
 fun CellSymbol(cell: Cell, media: MediaFiles, showLabels: Boolean, textColor: Color) {
-    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        val imagePath = cell.symbol.imagePath
-        val image = remember(imagePath) { imagePath?.let { media.load(it) } }
-        when {
-            image != null -> Image(
-                bitmap = image,
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(6.dp)),
-            )
-            !cell.symbol.emoji.isNullOrBlank() -> {
-                val size = with(LocalDensity.current) { (minOf(maxHeight, maxWidth) * 0.72f).toSp() }
-                Text(cell.symbol.emoji!!, fontSize = size, lineHeight = size, textAlign = TextAlign.Center)
-            }
-            !showLabels -> Text(cell.label, color = textColor, fontWeight = FontWeight.Bold)
-        }
-    }
+    SymbolView(
+        symbol = cell.symbol,
+        media = media,
+        modifier = Modifier.fillMaxSize(),
+        fallbackText = if (showLabels) null else cell.label,
+        textColor = textColor,
+    )
 }

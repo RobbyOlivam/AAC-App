@@ -65,6 +65,7 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
     val backup = app.backup
     val openBoard = app.openBoard
     val pdf = app.pdf
+    val symbols = app.symbols
 
     val vocabulary get() = store.vocabulary
     val settings get() = settingsStore.settings
@@ -273,7 +274,7 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
 
     fun speak(text: String) {
         val s = s
-        speaker.speak(v.applyPronunciations(text), s.speechRate, s.pitch, s.voiceName)
+        speaker.speak(v.applyPronunciations(text), s.speechRate, s.pitch, s.voiceName, s.voiceAge)
     }
 
     fun backspace() {

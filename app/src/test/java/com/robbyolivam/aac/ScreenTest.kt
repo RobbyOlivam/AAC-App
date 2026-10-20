@@ -64,6 +64,10 @@ class ScreenTest {
 
     private val app get() = ApplicationProvider.getApplicationContext<AacApplication>()
 
+    init {
+        com.robbyolivam.aac.ui.renderSymbolsSynchronously = true
+    }
+
     private fun shot(name: String) = compose.onRoot().captureRoboImage("build/screenshots/$name.png")
 
     private fun hasText(text: String, substring: Boolean = false) =
@@ -94,6 +98,22 @@ class ScreenTest {
     fun coreBoardTabletLandscape() {
         launch()
         shot("tablet_land_core")
+    }
+
+    @Test
+    fun newFoldersAndSymbols() {
+        launch()
+        for (folder in listOf("Food", "Animals", "Little words", "Body")) {
+            compose.onNodeWithContentDescription("$folder folder").performClick()
+            shot("phone_folder_" + folder.lowercase().replace(' ', '_'))
+            compose.onNodeWithText("Back to Core", substring = true).performClick()
+        }
+    }
+
+    @Test
+    fun emojiStyleSetting() {
+        launch { app.settings.update { it.copy(symbolStyle = com.robbyolivam.aac.data.SymbolStyle.EMOJI) } }
+        shot("phone_core_emoji_style")
     }
 
     @Test
@@ -187,6 +207,16 @@ class ScreenTest {
         compose.onNodeWithContentDescription("Settings").performClick()
         compose.onNodeWithText("Vibrate on tap").performScrollTo()
         shot("phone_settings_dark")
+    }
+
+    @Test
+    fun voiceAgeSetting() {
+        launch { app.settings.update { it.copy(settingsLock = SettingsLock.NONE) } }
+        compose.onNodeWithContentDescription("Settings").performClick()
+        compose.onNodeWithText("Kid").performScrollTo().performClick()
+        compose.waitForIdle()
+        assertEquals(com.robbyolivam.aac.core.VoiceAge.KID, app.settings.settings.value.voiceAge)
+        shot("phone_settings_voice_age")
     }
 
     @Test

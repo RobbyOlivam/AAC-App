@@ -49,6 +49,7 @@ object OpenBoardFormat {
                     if (cell.action == CellAction.PHRASE) put("ext_aac_action", "phrase")
                     if (cell.level != 1) put("ext_aac_level", cell.level)
                     cell.symbol.emoji?.let { put("ext_aac_emoji", it) }
+                    cell.symbol.libraryId?.let { put("ext_aac_symbol", it) }
                     if (cell.action == CellAction.FOLDER && cell.linkTo != null) {
                         put("load_board", buildJsonObject {
                             put("id", cell.linkTo)
@@ -174,7 +175,7 @@ object OpenBoardFormat {
                     id = "$boardId.${safe(buttonId)}",
                     label = label,
                     spoken = b.str("vocalization")?.takeIf { it != label },
-                    symbol = Symbol(emoji = b.str("ext_aac_emoji"), imagePath = imagePath),
+                    symbol = Symbol(emoji = b.str("ext_aac_emoji"), imagePath = imagePath, libraryId = b.str("ext_aac_symbol")),
                     type = type,
                     action = when {
                         linkTo != null -> CellAction.FOLDER

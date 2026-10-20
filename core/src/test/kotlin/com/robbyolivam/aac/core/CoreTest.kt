@@ -204,7 +204,7 @@ class LevelsAndResizeTest {
         val level1 = home.cells.count { it?.visibleAt(1) == true }
         assertEquals(12, level1)
         assertTrue(home.cells.count { it?.visibleAt(2) == true } > level1)
-        assertEquals(48, home.cells.count { it?.visibleAt(Cell.MAX_LEVEL) == true })
+        assertEquals(56, home.cells.count { it?.visibleAt(Cell.MAX_LEVEL) == true })
         // Words hidden at a level are not found by search at that level.
         assertNull(vocab.findWord("who", level = 1))
         assertNotNull(vocab.findWord("who"))
@@ -218,6 +218,25 @@ class LevelsAndResizeTest {
         val migrated = DefaultVocabulary.migrate(old)
         assertEquals(Vocabulary.CURRENT_VERSION, migrated.version)
         assertEquals(vocab.home, migrated.home)
+    }
+
+    @Test
+    fun migrationAddsSeventhColumnWithoutMovingAnything() {
+        val newIds = setOf("body", "school", "animals", "activities", "little-words", "more-actions", "health", "weather")
+        val oldHome = vocab.home.resized(8, 6)
+        val old = vocab.copy(version = 2, boards = vocab.boards.filter { it.id !in newIds }.map { if (it.id == vocab.homeBoardId) oldHome else it })
+        val migrated = DefaultVocabulary.migrate(old)
+        assertEquals(7, migrated.home.cols)
+        for (r in 0 until 8) for (c in 0 until 6) assertEquals(oldHome.cellAt(r, c), migrated.home.cellAt(r, c))
+        assertTrue(newIds.all { migrated.board(it) != null })
+        assertNotNull(migrated.findWord("elephant"))
+        assertEquals(vocab.home, migrated.home)
+    }
+
+    @Test
+    fun vocabularyIsLarge() {
+        val words = vocab.allWordCells().map { it.text.lowercase() }.toSet()
+        assertTrue(words.size > 600, "only ${words.size} distinct words")
     }
 
     @Test
@@ -262,6 +281,7 @@ class OpenBoardFormatTest {
                 assertEquals(a?.linkTo, b?.linkTo)
                 assertEquals(a?.type, b?.type)
                 assertEquals(a?.symbol?.emoji, b?.symbol?.emoji)
+                assertEquals(a?.symbol?.libraryId, b?.symbol?.libraryId)
                 assertEquals(a?.level, b?.level)
                 assertEquals(a?.action, b?.action)
             }
@@ -312,5 +332,44 @@ class OpenBoardFormatTest {
         assertEquals("I see a dog", dog.text)
         assertNotNull(v.board(v.phrasesBoardId))
         assertNotNull(v.findWord("dog"))
+    }
+}
+
+class WavTest {
+    private fun wav(sampleRate: Int, samples: ShortArray, extraChunk: Boolean = false): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        fun int16(v: Int) { out.write(v and 0xFF); out.write((v shr 8) and 0xFF) }
+        fun int32(v: Int) { int16(v and 0xFFFF); int16((v shr 16) and 0xFFFF) }
+        out.write("RIFF".toByteArray()); int32(0); out.write("WAVE".toByteArray())
+        out.write("fmt ".toByteArray()); int32(16); int16(1); int16(1); int32(sampleRate); int32(sampleRate * 2); int16(2); int16(16)
+        if (extraChunk) { out.write("LIST".toByteArray()); int32(3); out.write(byteArrayOf(1, 2, 3, 0)) }
+        out.write("data".toByteArray()); int32(samples.size * 2)
+        samples.forEach { int16(it.toInt()) }
+        return out.toByteArray()
+    }
+
+    @Test
+    fun parsesTtsOutput() {
+        val pcm = assertNotNull(Wav.parse(wav(22050, shortArrayOf(1, -2, 300), extraChunk = true)))
+        assertEquals(22050, pcm.sampleRate)
+        assertEquals(1, pcm.channels)
+        assertEquals(3, pcm.frames)
+        assertEquals(-2, (pcm.data[2].toInt() and 0xFF) or (pcm.data[3].toInt() shl 8))
+    }
+
+    @Test
+    fun rejectsNonWav() {
+        assertNull(Wav.parse("hello world, not audio".toByteArray()))
+        assertNull(Wav.parse(ByteArray(0)))
+    }
+
+    @Test
+    fun voiceAgeKeepsSpeedAndRaisesPitch() {
+        for (age in VoiceAge.entries) {
+            // Playback runs `formant` times faster, so the result must match what was asked for.
+            assertEquals(1.0f, age.engineRate(1.0f) * age.formant, 1e-4f)
+            assertEquals(age.pitch, age.enginePitch(1.0f) * age.formant, 1e-4f)
+        }
+        assertTrue(VoiceAge.KID.pitch > VoiceAge.TEEN.pitch && VoiceAge.TEEN.pitch > VoiceAge.ADULT.pitch)
     }
 }

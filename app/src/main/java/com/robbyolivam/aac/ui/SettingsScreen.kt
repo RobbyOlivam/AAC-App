@@ -47,9 +47,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.robbyolivam.aac.core.VoiceAge
 import com.robbyolivam.aac.data.KeyboardLayout
 import com.robbyolivam.aac.data.OrientationMode
 import com.robbyolivam.aac.data.ScanMode
+import com.robbyolivam.aac.data.SymbolStyle
 import com.robbyolivam.aac.data.Settings
 import com.robbyolivam.aac.data.SettingsLock
 import com.robbyolivam.aac.data.ThemeMode
@@ -166,11 +168,24 @@ fun SettingsScreen(vm: AacViewModel) {
                     voices.forEach { voice ->
                         FilterChip(settings.voiceName == voice.name, {
                             update { it.copy(voiceName = voice.name) }
-                            vm.speaker.speak("Hi, this is my voice", settings.speechRate, settings.pitch, voice.name)
+                            vm.speaker.speak("Hi, this is my voice", settings.speechRate, settings.pitch, voice.name, settings.voiceAge)
                         }, { Text(voice.name.removePrefix("${voice.locale.language}-").take(28)) })
                     }
                 }
             }
+            Text("Voice age", fontWeight = FontWeight.SemiBold)
+            ChipFlow {
+                VoiceAge.entries.forEach { age ->
+                    FilterChip(settings.voiceAge == age, {
+                        update { it.copy(voiceAge = age) }
+                        vm.speaker.speak("Hi, this is my voice", settings.speechRate, settings.pitch, settings.voiceName, age)
+                    }, { Text(age.label) })
+                }
+            }
+            Text(
+                "Teen and Kid make any voice sound younger. They sound most natural starting from a higher (often female) voice.",
+                style = MaterialTheme.typography.bodySmall,
+            )
             OutlinedButton(onClick = { vm.speak("Hello! This is how I sound.") }) { Text("Test voice") }
             ToggleSetting("Speak each word when tapped", settings.speakOnSelect) { v -> update { it.copy(speakOnSelect = v) } }
             ToggleSetting("Speak letters and words while typing", settings.speakLettersWhileTyping) { v -> update { it.copy(speakLettersWhileTyping = v) } }
@@ -216,6 +231,11 @@ fun SettingsScreen(vm: AacViewModel) {
                 listOf(OrientationMode.AUTO to "Auto-rotate", OrientationMode.PORTRAIT to "Portrait", OrientationMode.LANDSCAPE to "Landscape").forEach { (o, name) ->
                     FilterChip(settings.orientation == o, { update { it.copy(orientation = o) } }, { Text(name) })
                 }
+            }
+            Text("Symbols", fontWeight = FontWeight.SemiBold)
+            ChipFlow {
+                FilterChip(settings.symbolStyle == SymbolStyle.LIBRARY, { update { it.copy(symbolStyle = SymbolStyle.LIBRARY) } }, { Text("Symbol library") })
+                FilterChip(settings.symbolStyle == SymbolStyle.EMOJI, { update { it.copy(symbolStyle = SymbolStyle.EMOJI) } }, { Text("Phone emoji") })
             }
             ToggleSetting("High contrast buttons (low vision / CVI)", settings.highContrast) { v -> update { it.copy(highContrast = v) } }
             Text("Theme", fontWeight = FontWeight.SemiBold)
@@ -309,6 +329,12 @@ fun SettingsScreen(vm: AacViewModel) {
             )
             TextButton(onClick = { confirmReset = true }) { Text("Reset to starter vocabulary", color = MaterialTheme.colorScheme.error) }
 
+            Header("Credits")
+            Text(
+                "Symbols: Mulberry Symbols © Steve Lee (mulberrysymbols.org) and OpenMoji (openmoji.org), " +
+                    "both licensed CC BY-SA 4.0 (creativecommons.org/licenses/by-sa/4.0).",
+                fontSize = 13.sp, color = MaterialTheme.colorScheme.outline,
+            )
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
             Text(
                 "Speech always works offline. Your words stay on this device unless you save a backup.",

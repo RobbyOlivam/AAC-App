@@ -25,6 +25,11 @@ data class Symbol(
     val emoji: String? = null,
     /** Path relative to the app's files dir, e.g. "media/abc.jpg". */
     val imagePath: String? = null,
+    /**
+     * A bundled library symbol: "m:<id>" for Mulberry, "o:<hexcode>" for OpenMoji.
+     * Shown when there's no photo; the emoji is the fallback.
+     */
+    val libraryId: String? = null,
 )
 
 @Serializable
@@ -143,6 +148,6 @@ data class Vocabulary(
     val home: Board get() = board(homeBoardId) ?: boards.first()
 
     companion object {
-        const val CURRENT_VERSION = 2
+        const val CURRENT_VERSION = 3
     }
 }
