@@ -204,7 +204,7 @@ class LevelsAndResizeTest {
         val level1 = home.cells.count { it?.visibleAt(1) == true }
         assertEquals(12, level1)
         assertTrue(home.cells.count { it?.visibleAt(2) == true } > level1)
-        assertEquals(48, home.cells.count { it?.visibleAt(Cell.MAX_LEVEL) == true })
+        assertEquals(56, home.cells.count { it?.visibleAt(Cell.MAX_LEVEL) == true })
         // Words hidden at a level are not found by search at that level.
         assertNull(vocab.findWord("who", level = 1))
         assertNotNull(vocab.findWord("who"))
@@ -218,6 +218,25 @@ class LevelsAndResizeTest {
         val migrated = DefaultVocabulary.migrate(old)
         assertEquals(Vocabulary.CURRENT_VERSION, migrated.version)
         assertEquals(vocab.home, migrated.home)
+    }
+
+    @Test
+    fun migrationAddsSeventhColumnWithoutMovingAnything() {
+        val newIds = setOf("body", "school", "animals", "activities", "little-words", "more-actions", "health", "weather")
+        val oldHome = vocab.home.resized(8, 6)
+        val old = vocab.copy(version = 2, boards = vocab.boards.filter { it.id !in newIds }.map { if (it.id == vocab.homeBoardId) oldHome else it })
+        val migrated = DefaultVocabulary.migrate(old)
+        assertEquals(7, migrated.home.cols)
+        for (r in 0 until 8) for (c in 0 until 6) assertEquals(oldHome.cellAt(r, c), migrated.home.cellAt(r, c))
+        assertTrue(newIds.all { migrated.board(it) != null })
+        assertNotNull(migrated.findWord("elephant"))
+        assertEquals(vocab.home, migrated.home)
+    }
+
+    @Test
+    fun vocabularyIsLarge() {
+        val words = vocab.allWordCells().map { it.text.lowercase() }.toSet()
+        assertTrue(words.size > 600, "only ${words.size} distinct words")
     }
 
     @Test
@@ -262,6 +281,7 @@ class OpenBoardFormatTest {
                 assertEquals(a?.linkTo, b?.linkTo)
                 assertEquals(a?.type, b?.type)
                 assertEquals(a?.symbol?.emoji, b?.symbol?.emoji)
+                assertEquals(a?.symbol?.libraryId, b?.symbol?.libraryId)
                 assertEquals(a?.level, b?.level)
                 assertEquals(a?.action, b?.action)
             }

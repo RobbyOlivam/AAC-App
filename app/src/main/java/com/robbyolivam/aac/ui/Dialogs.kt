@@ -56,14 +56,17 @@ import com.robbyolivam.aac.ui.theme.wordColor
 
 /** Word forms popup: go → goes / going / went / gone. */
 @Composable
-fun WordFormsDialog(cell: Cell, onPick: (String) -> Unit, onDismiss: () -> Unit) {
+fun WordFormsDialog(cell: Cell, media: MediaFiles, onPick: (String) -> Unit, onDismiss: () -> Unit) {
     val forms = remember(cell) { EnglishMorphology.forms(cell.text, cell.type) }
     Dialog(onDismissRequest = onDismiss) {
         Column(
             Modifier.clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface).padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("${cell.symbol.emoji.orEmpty()} ${cell.label}", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SymbolView(cell.symbol, media, Modifier.size(40.dp))
+                Text("  ${cell.label}", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            }
             forms.chunked(2).forEach { pair ->
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     pair.forEach { form ->
@@ -119,7 +122,7 @@ fun SearchDialog(vm: AacViewModel, media: MediaFiles, onDismiss: () -> Unit) {
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Box(Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)).background(wordColor(loc.cell.type)), contentAlignment = Alignment.Center) {
-                                Text(loc.cell.symbol.emoji.orEmpty(), fontSize = 22.sp)
+                                SymbolView(loc.cell.symbol, media, Modifier.size(34.dp))
                             }
                             Column(Modifier.padding(start = 10.dp)) {
                                 Text(loc.cell.label, fontWeight = FontWeight.SemiBold)

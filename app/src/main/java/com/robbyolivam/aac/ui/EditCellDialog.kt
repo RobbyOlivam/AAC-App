@@ -51,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -81,6 +82,8 @@ fun EditCellDialog(vm: AacViewModel, target: EditTarget) {
     var spoken by remember { mutableStateOf(original?.spoken.orEmpty()) }
     var emoji by remember { mutableStateOf(original?.symbol?.emoji.orEmpty()) }
     var imagePath by remember { mutableStateOf(original?.symbol?.imagePath) }
+    var libraryId by remember { mutableStateOf(original?.symbol?.libraryId) }
+    var symbolQuery by remember { mutableStateOf(original?.label.orEmpty()) }
     var type by remember { mutableStateOf(original?.type ?: WordType.NOUN) }
     var action by remember { mutableStateOf(original?.action ?: if (isStrip) CellAction.PHRASE else CellAction.WORD) }
     var linkTo by remember { mutableStateOf(original?.linkTo) }
@@ -129,7 +132,7 @@ fun EditCellDialog(vm: AacViewModel, target: EditTarget) {
             id = original?.id ?: vm.newCellId(),
             label = label.trim(),
             spoken = spoken.trim().takeIf { it.isNotEmpty() && it != label.trim() },
-            symbol = Symbol(emoji = emoji.trim().ifEmpty { null }, imagePath = imagePath),
+            symbol = Symbol(emoji = emoji.trim().ifEmpty { null }, imagePath = imagePath, libraryId = libraryId),
             type = if (action == CellAction.FOLDER) WordType.FOLDER else type,
             action = action,
             linkTo = if (action == CellAction.FOLDER) linkTo else null,
@@ -206,16 +209,63 @@ fun EditCellDialog(vm: AacViewModel, target: EditTarget) {
                         }
                     }
 
-                    OutlinedTextField(label, { label = it }, label = { Text("Label") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(
+                        label,
+                        { new ->
+                            // Keep the symbol search in step with the label until the person searches on their own.
+                            if (symbolQuery == label) symbolQuery = new
+                            label = new
+                        },
+                        label = { Text("Label") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                     OutlinedTextField(
                         spoken, { spoken = it },
                         label = { Text(if (action == CellAction.FOLDER) "Spoken text (not used for folders)" else "Say instead (optional)") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    SectionTitle("Symbol")
+                    OutlinedTextField(
+                        symbolQuery, { symbolQuery = it },
+                        label = { Text("Search symbols") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    val results = remember(symbolQuery) { vm.symbols.search(symbolQuery, limit = 40) }
+                    if (results.isEmpty() && symbolQuery.isNotBlank()) {
+                        Text("No symbol for “$symbolQuery”. Try another word, an emoji, or a photo.", fontSize = 13.sp)
+                    }
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        results.forEach { sym ->
+                            val selected = libraryId == sym.libraryId
+                            Column(
+                                Modifier
+                                    .size(width = 76.dp, height = 92.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .border(
+                                        if (selected) 3.dp else 1.dp,
+                                        if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                                        RoundedCornerShape(8.dp),
+                                    )
+                                    .background(Color.White)
+                                    .clickable {
+                                        libraryId = sym.libraryId
+                                        imagePath = null
+                                    }
+                                    .padding(4.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                SymbolView(Symbol(libraryId = sym.libraryId), vm.media, Modifier.weight(1f).fillMaxWidth())
+                                Text(sym.name, fontSize = 10.sp, maxLines = 1, color = Color.DarkGray)
+                            }
+                        }
+                    }
+                    if (libraryId != null) TextButton(onClick = { libraryId = null }) { Text("Don't use a library symbol") }
                     OutlinedTextField(
                         emoji, { emoji = it.take(16) },
-                        label = { Text("Emoji symbol") },
+                        label = { Text("Emoji (used if there's no symbol)") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )

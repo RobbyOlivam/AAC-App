@@ -64,6 +64,10 @@ class ScreenTest {
 
     private val app get() = ApplicationProvider.getApplicationContext<AacApplication>()
 
+    init {
+        com.robbyolivam.aac.ui.renderSymbolsSynchronously = true
+    }
+
     private fun shot(name: String) = compose.onRoot().captureRoboImage("build/screenshots/$name.png")
 
     private fun hasText(text: String, substring: Boolean = false) =
@@ -94,6 +98,22 @@ class ScreenTest {
     fun coreBoardTabletLandscape() {
         launch()
         shot("tablet_land_core")
+    }
+
+    @Test
+    fun newFoldersAndSymbols() {
+        launch()
+        for (folder in listOf("Food", "Animals", "Little words", "Body")) {
+            compose.onNodeWithContentDescription("$folder folder").performClick()
+            shot("phone_folder_" + folder.lowercase().replace(' ', '_'))
+            compose.onNodeWithText("Back to Core", substring = true).performClick()
+        }
+    }
+
+    @Test
+    fun emojiStyleSetting() {
+        launch { app.settings.update { it.copy(symbolStyle = com.robbyolivam.aac.data.SymbolStyle.EMOJI) } }
+        shot("phone_core_emoji_style")
     }
 
     @Test

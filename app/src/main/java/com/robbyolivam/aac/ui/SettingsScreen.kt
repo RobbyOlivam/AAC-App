@@ -50,6 +50,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.robbyolivam.aac.data.KeyboardLayout
 import com.robbyolivam.aac.data.OrientationMode
 import com.robbyolivam.aac.data.ScanMode
+import com.robbyolivam.aac.data.SymbolStyle
 import com.robbyolivam.aac.data.Settings
 import com.robbyolivam.aac.data.SettingsLock
 import com.robbyolivam.aac.data.ThemeMode
@@ -217,6 +218,11 @@ fun SettingsScreen(vm: AacViewModel) {
                     FilterChip(settings.orientation == o, { update { it.copy(orientation = o) } }, { Text(name) })
                 }
             }
+            Text("Symbols", fontWeight = FontWeight.SemiBold)
+            ChipFlow {
+                FilterChip(settings.symbolStyle == SymbolStyle.LIBRARY, { update { it.copy(symbolStyle = SymbolStyle.LIBRARY) } }, { Text("Symbol library") })
+                FilterChip(settings.symbolStyle == SymbolStyle.EMOJI, { update { it.copy(symbolStyle = SymbolStyle.EMOJI) } }, { Text("Phone emoji") })
+            }
             ToggleSetting("High contrast buttons (low vision / CVI)", settings.highContrast) { v -> update { it.copy(highContrast = v) } }
             Text("Theme", fontWeight = FontWeight.SemiBold)
             ChipFlow {
@@ -309,6 +315,12 @@ fun SettingsScreen(vm: AacViewModel) {
             )
             TextButton(onClick = { confirmReset = true }) { Text("Reset to starter vocabulary", color = MaterialTheme.colorScheme.error) }
 
+            Header("Credits")
+            Text(
+                "Symbols: Mulberry Symbols © Steve Lee (mulberrysymbols.org) and OpenMoji (openmoji.org), " +
+                    "both licensed CC BY-SA 4.0 (creativecommons.org/licenses/by-sa/4.0).",
+                fontSize = 13.sp, color = MaterialTheme.colorScheme.outline,
+            )
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
             Text(
                 "Speech always works offline. Your words stay on this device unless you save a backup.",

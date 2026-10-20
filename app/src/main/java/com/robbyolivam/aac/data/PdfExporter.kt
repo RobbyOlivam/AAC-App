@@ -19,7 +19,7 @@ import java.io.OutputStream
  * Prints every page of the vocabulary as a paper communication board (a no-tech backup for
  * dead batteries, the pool, or the beach), one board per landscape US-letter page.
  */
-class PdfExporter(private val store: VocabularyStore) {
+class PdfExporter(private val store: VocabularyStore, private val symbols: SymbolLibrary) {
 
     fun export(vocabulary: Vocabulary, level: Int, output: OutputStream) {
         val doc = PdfDocument()
@@ -78,7 +78,9 @@ class PdfExporter(private val store: VocabularyStore) {
 
         val symbolBox = RectF(r.left + 4f, r.top + 4f, r.right - 4f, r.bottom - labelPaint.textSize - 10f)
         val imagePath = cell.symbol.imagePath
+        val libraryId = symbols.run { cell.symbol.libraryId?.takeIf { contains(it) } ?: forEmoji(cell.symbol.emoji) }
         val bitmap = imagePath?.let { BitmapFactory.decodeFile(store.resolve(it).absolutePath) }
+            ?: libraryId?.let { symbols.renderBitmap(it, 200) }
         if (bitmap != null) {
             canvas.drawBitmap(bitmap, null, fit(bitmap.width.toFloat(), bitmap.height.toFloat(), symbolBox), null)
         } else if (!cell.symbol.emoji.isNullOrBlank()) {

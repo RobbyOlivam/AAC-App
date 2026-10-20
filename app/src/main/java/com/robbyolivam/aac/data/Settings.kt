@@ -16,6 +16,10 @@ enum class KeyboardLayout { QWERTY, ABC }
 @Serializable
 enum class OrientationMode { AUTO, PORTRAIT, LANDSCAPE }
 
+/** LIBRARY = bundled Mulberry/OpenMoji symbols; EMOJI = the phone's own emoji font. */
+@Serializable
+enum class SymbolStyle { LIBRARY, EMOJI }
+
 /** OFF, one-switch automatic scanning, or two-switch step scanning (move + select). */
 @Serializable
 enum class ScanMode { OFF, AUTO, STEP }
@@ -49,6 +53,7 @@ data class Settings(
     val vocabularyLevel: Int = 4,
     /** Black buttons with colored borders, for low vision / cortical visual impairment. */
     val highContrast: Boolean = false,
+    val symbolStyle: SymbolStyle = SymbolStyle.LIBRARY,
     val orientation: OrientationMode = OrientationMode.AUTO,
     // Switch scanning
     val scanMode: ScanMode = ScanMode.OFF,

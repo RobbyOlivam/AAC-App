@@ -199,7 +199,7 @@ fun CommunicationScreen(vm: AacViewModel) {
     if (askPin) {
         PinDialog(expected = settings.pin, onSuccess = { askPin = false; vm.screen = Screen.SETTINGS }, onDismiss = { askPin = false })
     }
-    vm.formsFor?.let { cell -> WordFormsDialog(cell, onPick = { vm.selectForm(cell, it) }, onDismiss = { vm.formsFor = null }) }
+    vm.formsFor?.let { cell -> WordFormsDialog(cell, vm.media, onPick = { vm.selectForm(cell, it) }, onDismiss = { vm.formsFor = null }) }
     if (vm.searchOpen) SearchDialog(vm, vm.media, onDismiss = { vm.searchOpen = false })
     if (vm.showPartner) PartnerDisplay(vm.messageText(), onSpeak = vm::speakMessage, onClose = { vm.showPartner = false })
     vm.editing?.let { target -> EditCellDialog(vm, target) }
@@ -379,11 +379,7 @@ private fun MessageBar(vm: AacViewModel, isScanned: (String, String) -> Boolean,
 @Composable
 private fun MessageChip(text: String, symbol: Symbol?, vm: AacViewModel) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 2.dp)) {
-        val image = remember(symbol?.imagePath) { symbol?.imagePath?.let { vm.media.load(it) } }
-        when {
-            image != null -> Image(image, null, Modifier.size(30.dp).clip(RoundedCornerShape(4.dp)))
-            !symbol?.emoji.isNullOrBlank() -> Text(symbol?.emoji.orEmpty(), fontSize = 22.sp)
-        }
+        if (symbol != null) SymbolView(symbol, vm.media, Modifier.size(30.dp))
         Text(text, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
     }
 }
@@ -438,11 +434,7 @@ private fun PredictionRow(vm: AacViewModel, predictions: Predictions, isScanned:
 
 @Composable
 private fun SymbolMini(cell: Cell, vm: AacViewModel) {
-    val image = remember(cell.symbol.imagePath) { cell.symbol.imagePath?.let { vm.media.load(it) } }
-    when {
-        image != null -> Image(image, null, Modifier.size(22.dp).clip(RoundedCornerShape(3.dp)))
-        !cell.symbol.emoji.isNullOrBlank() -> Text(cell.symbol.emoji.orEmpty(), fontSize = 18.sp)
-    }
+    SymbolView(cell.symbol, vm.media, Modifier.size(24.dp))
 }
 
 @Composable
