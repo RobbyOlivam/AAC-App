@@ -10,6 +10,7 @@ import com.robbyolivam.aac.data.SymbolLibrary
 import com.robbyolivam.aac.data.VocabularyStore
 import com.robbyolivam.aac.speech.AudioRecorder
 import com.robbyolivam.aac.speech.Speaker
+import java.io.File
 
 /** Simple manual dependency container; there are few enough pieces that DI isn't needed yet. */
 class AacApplication : Application() {
@@ -35,6 +36,7 @@ class AacApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         settings = SettingsStore(this)
+        removeShelvedVoicePacks()
         vocabulary = VocabularyStore(this)
         media = MediaFiles(this, vocabulary)
         speaker = Speaker(this)
@@ -43,5 +45,16 @@ class AacApplication : Application() {
         openBoard = OpenBoardFiles(vocabulary, media)
         symbols = SymbolLibrary(this)
         pdf = PdfExporter(vocabulary, symbols)
+    }
+
+    /**
+     * Downloadable voice packs were tried in 0.3.0 and shelved (code kept on the
+     * shelved/neural-voice-packs branch). Frees their downloads (~63 MB each) and moves anyone
+     * who picked one back to the default voice.
+     */
+    private fun removeShelvedVoicePacks() {
+        File(filesDir, "voices").deleteRecursively()
+        File(filesDir, "voice-data-v1").deleteRecursively()
+        if (settings.settings.value.voiceName?.startsWith("pack:") == true) settings.update { it.copy(voiceName = null) }
     }
 }

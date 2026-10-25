@@ -86,4 +86,4 @@ app/   Android app (Jetpack Compose)
 
 ## Next steps (from the roadmap)
 
-Gemini Nano "expand my words" (on-device), downloadable neural voices (Piper/Kokoro via sherpa-onnx), partner "ghost modeling" app, Listen mode, usage reports for SLPs, Wear OS companion, then iOS/web via Kotlin Multiplatform.
+Gemini Nano "expand my words" (on-device), neural voice packs (tried in 0.3.0, shelved for buzz on Teen/Kid and mispronounced single words; code on the `shelved/neural-voice-packs` branch), downloadable neural voices (Piper/Kokoro via sherpa-onnx), partner "ghost modeling" app, Listen mode, usage reports for SLPs, Wear OS companion, then iOS/web via Kotlin Multiplatform.
