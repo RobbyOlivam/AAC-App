@@ -66,6 +66,7 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
     val openBoard = app.openBoard
     val pdf = app.pdf
     val symbols = app.symbols
+    val voicePacks = app.voicePacks
 
     val vocabulary get() = store.vocabulary
     val settings get() = settingsStore.settings

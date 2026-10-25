@@ -358,6 +358,14 @@ class WavTest {
     }
 
     @Test
+    fun writeThenParse() {
+        val data = byteArrayOf(1, 2, 3, 4, -1, -2)
+        val pcm = assertNotNull(Wav.parse(Wav.write(Pcm(24000, 1, data))))
+        assertEquals(24000, pcm.sampleRate)
+        assertTrue(data.contentEquals(pcm.data))
+    }
+
+    @Test
     fun rejectsNonWav() {
         assertNull(Wav.parse("hello world, not audio".toByteArray()))
         assertNull(Wav.parse(ByteArray(0)))
