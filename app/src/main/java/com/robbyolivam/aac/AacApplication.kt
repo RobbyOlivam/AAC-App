@@ -10,7 +10,6 @@ import com.robbyolivam.aac.data.SymbolLibrary
 import com.robbyolivam.aac.data.VocabularyStore
 import com.robbyolivam.aac.speech.AudioRecorder
 import com.robbyolivam.aac.speech.Speaker
-import com.robbyolivam.aac.speech.VoicePacks
 
 /** Simple manual dependency container; there are few enough pieces that DI isn't needed yet. */
 class AacApplication : Application() {
@@ -32,16 +31,13 @@ class AacApplication : Application() {
         private set
     lateinit var symbols: SymbolLibrary
         private set
-    lateinit var voicePacks: VoicePacks
-        private set
 
     override fun onCreate() {
         super.onCreate()
         settings = SettingsStore(this)
         vocabulary = VocabularyStore(this)
         media = MediaFiles(this, vocabulary)
-        voicePacks = VoicePacks(this)
-        speaker = Speaker(this, voicePacks)
+        speaker = Speaker(this)
         recorder = AudioRecorder(this)
         backup = BackupManager(vocabulary, settings, media)
         openBoard = OpenBoardFiles(vocabulary, media)

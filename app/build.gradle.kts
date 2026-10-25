@@ -1,6 +1,4 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import java.net.URI
-import java.security.MessageDigest
 
 plugins {
     alias(libs.plugins.android.application)
@@ -18,15 +16,8 @@ android {
         applicationId = "com.robbyolivam.aac"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0"
-        // Neural voices run on ARM phones and tablets; this keeps x86 engine copies out of the APK.
-        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
-    }
-
-    packaging {
-        // Compress the voice engine's native libraries in the APK (smaller download).
-        jniLibs.useLegacyPackaging = true
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     signingConfigs {
@@ -66,27 +57,8 @@ kotlin {
     compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
 }
 
-/**
- * The sherpa-onnx speech engine (Apache-2.0, https://github.com/k2-fsa/sherpa-onnx) isn't on
- * Maven Central, so the official Android AAR is fetched from the project's Hugging Face mirror
- * on first build and checked against a pinned SHA-256.
- */
-val sherpaVersion = "1.12.21"
-val sherpaSha256 = "4ce353cda9ab9e4c2e398dfd45aeb43cca1b5f97279051d354ebcdbd043e74ef"
-val sherpaAar = layout.buildDirectory.file("libs/sherpa-onnx-$sherpaVersion.aar").get().asFile
-fun sha256(file: File) = MessageDigest.getInstance("SHA-256").digest(file.readBytes()).joinToString("") { "%02x".format(it) }
-if (!sherpaAar.exists() || sha256(sherpaAar) != sherpaSha256) {
-    sherpaAar.parentFile.mkdirs()
-    val tmp = File(sherpaAar.path + ".part")
-    URI("https://huggingface.co/csukuangfj/sherpa-onnx-libs/resolve/main/android/aar/sherpa-onnx-$sherpaVersion.aar")
-        .toURL().openStream().use { input -> tmp.outputStream().use { input.copyTo(it) } }
-    check(sha256(tmp) == sherpaSha256) { "sherpa-onnx AAR checksum mismatch" }
-    tmp.renameTo(sherpaAar)
-}
-
 dependencies {
     implementation(project(":core"))
-    implementation(files(sherpaAar))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
