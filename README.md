@@ -62,6 +62,12 @@ The screen tests drive the real app on the JVM (Robolectric) on a Pixel-sized an
 | Vocabulary | ~650 starter words. A 7th core column holds 8 new folders: Body, School, Animals, Activities, Little words, More actions, Health, Weather. Existing boards are upgraded without moving any button |
 | Voice age | **Adult / Teen / Kid** for any installed voice (Settings → Voice). The voice is rendered and played back faster with the engine slowed to match, which raises pitch and vocal-tract size without changing speed. Rendered words are cached so repeats are instant |
 
+| Voice packs | Six natural neural voices (Piper, run on the device by sherpa-onnx), downloaded only when you tap Download in Settings → Voice packs (about 63 MB each), then fully offline. All trained on public-domain recordings: Kristin, Linda, Cori (female); John, Norman, Bryce (male). Voice age works with them too. Pitch slider applies to phone voices only. Each download is pinned to a revision and SHA-256 checked |
+
+**Licence note:** the voice engine includes eSpeak NG (GPL-3.0) for pronunciation. That's fine for personal use and for open-source distribution; a closed-source commercial release would need a different pronunciation front end.
+
+The sherpa-onnx AAR is fetched from Hugging Face on the first Gradle build and checked against a pinned SHA-256 (see `app/build.gradle.kts`).
+
 Symbol assets are rebuilt with `scripts/build-symbols.py` (see the script header).
 
 ## Project layout
@@ -86,4 +92,4 @@ app/   Android app (Jetpack Compose)
 
 ## Next steps (from the roadmap)
 
-Gemini Nano "expand my words" (on-device), downloadable neural voices (Piper/Kokoro via sherpa-onnx), partner "ghost modeling" app, Listen mode, usage reports for SLPs, Wear OS companion, then iOS/web via Kotlin Multiplatform.
+Gemini Nano "expand my words" (on-device), partner "ghost modeling" app, Listen mode, usage reports for SLPs, Wear OS companion, then iOS/web via Kotlin Multiplatform.

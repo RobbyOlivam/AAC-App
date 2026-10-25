@@ -27,6 +27,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -48,6 +49,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.robbyolivam.aac.core.VoiceAge
+import com.robbyolivam.aac.speech.PackState
+import com.robbyolivam.aac.speech.VoicePack
+import com.robbyolivam.aac.speech.voicePackCatalog
 import com.robbyolivam.aac.data.KeyboardLayout
 import com.robbyolivam.aac.data.OrientationMode
 import com.robbyolivam.aac.data.ScanMode
@@ -69,6 +73,8 @@ fun SettingsScreen(vm: AacViewModel) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val voices by vm.speaker.voices.collectAsStateWithLifecycle()
     val ttsAvailable by vm.speaker.available.collectAsStateWithLifecycle()
+    val packStates by vm.voicePacks.states.collectAsStateWithLifecycle()
+    val installedPacks = voicePackCatalog.filter { packStates[it.id] == PackState.Installed }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var showSnapshots by remember { mutableStateOf(false) }
@@ -161,10 +167,16 @@ fun SettingsScreen(vm: AacViewModel) {
             }
             SliderSetting("Speed", settings.speechRate, 0.5f..2.0f, "%.1f×".format(settings.speechRate)) { v -> update { it.copy(speechRate = v) } }
             SliderSetting("Pitch", settings.pitch, 0.5f..2.0f, "%.1f".format(settings.pitch)) { v -> update { it.copy(pitch = v) } }
-            if (voices.isNotEmpty()) {
+            if (voices.isNotEmpty() || installedPacks.isNotEmpty()) {
                 Text("Voice", fontWeight = FontWeight.SemiBold)
                 ChipFlow {
                     FilterChip(settings.voiceName == null, { update { it.copy(voiceName = null) } }, { Text("Default") })
+                    installedPacks.forEach { pack ->
+                        FilterChip(settings.voiceName == pack.voiceName, {
+                            update { it.copy(voiceName = pack.voiceName) }
+                            vm.speaker.speak("Hi, this is my voice", settings.speechRate, settings.pitch, pack.voiceName, settings.voiceAge)
+                        }, { Text("★ ${pack.name}") })
+                    }
                     voices.forEach { voice ->
                         FilterChip(settings.voiceName == voice.name, {
                             update { it.copy(voiceName = voice.name) }
@@ -190,6 +202,34 @@ fun SettingsScreen(vm: AacViewModel) {
             ToggleSetting("Speak each word when tapped", settings.speakOnSelect) { v -> update { it.copy(speakOnSelect = v) } }
             ToggleSetting("Speak letters and words while typing", settings.speakLettersWhileTyping) { v -> update { it.copy(speakLettersWhileTyping = v) } }
             OutlinedButton(onClick = { showPronunciations = true }) { Text("Pronunciations…") }
+
+            Header("Voice packs")
+            if (!vm.voicePacks.supported) {
+                Text("Voice packs need an ARM phone or tablet (they can't run on this device).", style = MaterialTheme.typography.bodySmall)
+            } else {
+                Text(
+                    "Natural voices that run on this device, with no internet needed once downloaded. " +
+                        "Downloads only happen when you tap Download (about 63 MB each — Wi-Fi recommended).",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                voicePackCatalog.forEach { pack ->
+                    VoicePackRow(
+                        pack = pack,
+                        state = packStates[pack.id] ?: PackState.NotInstalled,
+                        selected = settings.voiceName == pack.voiceName,
+                        onDownload = { vm.voicePacks.download(pack) },
+                        onCancel = { vm.voicePacks.cancel(pack) },
+                        onUse = {
+                            update { it.copy(voiceName = pack.voiceName) }
+                            vm.speaker.speak("Hi, this is my voice", settings.speechRate, settings.pitch, pack.voiceName, settings.voiceAge)
+                        },
+                        onDelete = {
+                            if (settings.voiceName == pack.voiceName) update { it.copy(voiceName = null) }
+                            vm.voicePacks.delete(pack)
+                        },
+                    )
+                }
+            }
 
             Header("Touch")
             SliderSetting(
@@ -335,6 +375,12 @@ fun SettingsScreen(vm: AacViewModel) {
                     "both licensed CC BY-SA 4.0 (creativecommons.org/licenses/by-sa/4.0).",
                 fontSize = 13.sp, color = MaterialTheme.colorScheme.outline,
             )
+            Text(
+                "Voice packs: Piper voices (MIT) by Bryce Beattie and the Piper project, trained on public-domain " +
+                    "recordings (LibriVox, LJ Speech); run by sherpa-onnx (Apache-2.0) and ONNX Runtime (MIT), " +
+                    "with eSpeak NG pronunciation (GPL-3.0, github.com/espeak-ng/espeak-ng).",
+                fontSize = 13.sp, color = MaterialTheme.colorScheme.outline,
+            )
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
             Text(
                 "Speech always works offline. Your words stay on this device unless you save a backup.",
@@ -411,6 +457,40 @@ private fun SliderSetting(
             Text(display, color = MaterialTheme.colorScheme.primary)
         }
         Slider(value = value.coerceIn(range), onValueChange = onChange, valueRange = range, steps = steps)
+    }
+}
+
+@Composable
+private fun VoicePackRow(
+    pack: VoicePack,
+    state: PackState,
+    selected: Boolean,
+    onDownload: () -> Unit,
+    onCancel: () -> Unit,
+    onUse: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(pack.name + if (selected) "  ✓ in use" else "", fontWeight = FontWeight.SemiBold)
+                Text("${pack.description} · ${pack.bytes / 1_000_000} MB", style = MaterialTheme.typography.bodySmall)
+            }
+            when (state) {
+                PackState.NotInstalled -> OutlinedButton(onClick = onDownload) { Text("Download") }
+                is PackState.Failed -> OutlinedButton(onClick = onDownload) { Text("Retry") }
+                is PackState.Downloading -> TextButton(onClick = onCancel) { Text("Cancel") }
+                PackState.Installed -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (!selected) Button(onClick = onUse) { Text("Use") }
+                    TextButton(onClick = onDelete) { Text("Delete") }
+                }
+            }
+        }
+        when (state) {
+            is PackState.Downloading -> LinearProgressIndicator(progress = { state.progress }, modifier = Modifier.fillMaxWidth())
+            is PackState.Failed -> Text(state.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            else -> Unit
+        }
     }
 }
 

@@ -66,6 +66,7 @@ class ScreenTest {
 
     init {
         com.robbyolivam.aac.ui.renderSymbolsSynchronously = true
+        com.robbyolivam.aac.speech.assumeSupported = true
     }
 
     private fun shot(name: String) = compose.onRoot().captureRoboImage("build/screenshots/$name.png")
@@ -217,6 +218,16 @@ class ScreenTest {
         compose.waitForIdle()
         assertEquals(com.robbyolivam.aac.core.VoiceAge.KID, app.settings.settings.value.voiceAge)
         shot("phone_settings_voice_age")
+    }
+
+    @Test
+    fun voicePackList() {
+        launch { app.settings.update { it.copy(settingsLock = SettingsLock.NONE) } }
+        compose.onNodeWithContentDescription("Settings").performClick()
+        compose.onNodeWithText("Voice packs").performScrollTo()
+        compose.onNodeWithText("Bryce").performScrollTo()
+        assertEquals(6, compose.onAllNodesWithText("Download").fetchSemanticsNodes().size)
+        shot("phone_settings_voice_packs")
     }
 
     @Test

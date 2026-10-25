@@ -10,6 +10,7 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
 import android.util.Log
+import com.robbyolivam.aac.core.Pcm
 import com.robbyolivam.aac.core.VoiceAge
 import com.robbyolivam.aac.core.Wav
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,11 +22,12 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
- * Offline text-to-speech plus playback of recorded button audio. Teen and kid voice ages are
- * made by rendering speech to a file and playing it back faster (see [VoiceAge]); rendered
- * words are cached, since the same words get spoken over and over.
+ * Offline text-to-speech plus playback of recorded button audio. Speaks with the phone's own
+ * voices or with a downloaded [VoicePack]. Teen and kid voice ages are made by rendering speech
+ * to a file and playing it back faster (see [VoiceAge]); rendered words are cached, since the
+ * same words get spoken over and over.
  */
-class Speaker(context: Context) : TextToSpeech.OnInitListener {
+class Speaker(context: Context, private val packs: VoicePacks) : TextToSpeech.OnInitListener {
 
     private val tts = TextToSpeech(context.applicationContext, this)
     private var ready = false
@@ -40,6 +42,10 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
     private val renders = java.util.concurrent.ConcurrentHashMap<String, Render>()
 
     private class Render(val tmp: File, val file: File, val formant: Float)
+
+    /** Voice packs render one at a time, newest request wins. */
+    private val packThread = java.util.concurrent.Executors.newSingleThreadExecutor()
+    @Volatile private var generation = 0
 
     private val _voices = MutableStateFlow<List<Voice>>(emptyList())
     val voices: StateFlow<List<Voice>> = _voices.asStateFlow()
@@ -95,6 +101,13 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
     fun speak(text: String, rate: Float, pitch: Float, voiceName: String?, age: VoiceAge = VoiceAge.ADULT) {
         if (text.isBlank()) return
         stopAudio()
+        packs.find(voiceName)?.let { pack ->
+            if (packs.states.value[pack.id] == PackState.Installed) {
+                tts.stop()
+                speakPack(text, rate, pitch, pack, age)
+                return
+            }
+        }
         val action = {
             applyVoice(voiceName)
             if (age == VoiceAge.ADULT) {
@@ -134,6 +147,31 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
             tts.speak(text, TextToSpeech.QUEUE_FLUSH, Bundle(), "u${utteranceId++}")
         }
         trimCache()
+    }
+
+    private fun speakPack(text: String, rate: Float, pitch: Float, pack: VoicePack, age: VoiceAge) {
+        val file = File(cacheDir, cacheKey(text, rate, 1f, age, pack.voiceName) + ".wav")
+        if (file.exists()) {
+            file.setLastModified(System.currentTimeMillis())
+            play(file, age.formant)
+            return
+        }
+        val ticket = generation
+        packThread.execute {
+            if (ticket != generation) return@execute
+            val audio = packs.synthesize(pack, text, age.engineRate(rate))
+            if (audio == null) {
+                // Never go silent: fall back to the phone's own voice.
+                if (ticket == generation) speak(text, rate, pitch, null, age)
+                return@execute
+            }
+            cacheDir.mkdirs()
+            val tmp = File(cacheDir, "p$ticket-${System.nanoTime()}.tmp")
+            tmp.writeBytes(Wav.write(Pcm(audio.first, 1, audio.second)))
+            if (!tmp.renameTo(file)) tmp.delete()
+            trimCache()
+            if (ticket == generation) play(file, age.formant)
+        }
     }
 
     /** Plays a rendered WAV [speedUp] times faster, which raises pitch and formants together. */
@@ -219,6 +257,7 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
 
     private fun stopAudio() {
         awaited = null
+        generation++
         player?.let { runCatching { it.stop() }; it.release() }
         player = null
         synchronized(this) {
