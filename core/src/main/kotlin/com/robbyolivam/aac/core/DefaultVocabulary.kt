@@ -372,7 +372,22 @@ object DefaultVocabulary {
                 v = v.updateBoard(home.id) { grown }
             }
         }
+        if (v.version < 4) {
+            // Version 4 fixed starter pictures that didn't fit their folder ("tablet" showed
+            // pills). Only buttons still showing the old picture change.
+            v = v.copy(boards = v.boards.map { b ->
+                b.copy(cells = b.cells.map { c -> c?.let(::withFixedSymbol) }, scene = b.scene?.let { s ->
+                    s.copy(hotspots = s.hotspots.map { h -> h.copy(cell = withFixedSymbol(h.cell)) })
+                })
+            })
+        }
         return v.copy(version = Vocabulary.CURRENT_VERSION)
+    }
+
+    private fun withFixedSymbol(cell: Cell): Cell {
+        val old = replacedDefaultSymbols[cell.id] ?: return cell
+        val new = defaultLibrarySymbols[cell.id] ?: return cell
+        return if (cell.symbol.imagePath == null && cell.symbol.libraryId in old) cell.copy(symbol = cell.symbol.copy(libraryId = new)) else cell
     }
 
     private fun Folder.toFolderCell() = Cell(

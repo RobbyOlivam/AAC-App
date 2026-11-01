@@ -18,6 +18,14 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.pinch
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.isRoot
+import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.onFirst
+import androidx.activity.compose.setContent
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -60,7 +68,9 @@ class ScreenTest {
     val compose = createAndroidComposeRule<MainActivity>()
 
     /** Applies state changes (settings, vocabulary), then reopens the screen so it starts fresh with them. */
-    private fun launch(setup: () -> Unit = {}) {
+    private fun launch(firstRun: Boolean = false, setup: () -> Unit = {}) {
+        // Most tests skip the first-run tour offer; the tour tests ask for it.
+        app.settings.update { it.copy(tutorialOffered = !firstRun) }
         setup()
         compose.activityRule.scenario.recreate()
         compose.waitForIdle()
@@ -424,6 +434,120 @@ class ScreenTest {
         compose.onNodeWithText("Expand my words (on-device AI)").performScrollTo()
         compose.waitUntil(10_000) { hasText("Not available on this phone", substring = true) || hasText("Checking this phone…") }
         shot("phone_settings_expand_words")
+    }
+
+    @Test
+    fun formsChangesTheLastWord() {
+        launch()
+        compose.onNodeWithContentDescription("I").performClick()
+        compose.onNodeWithContentDescription("want").performClick()
+        compose.onNodeWithContentDescription("Forms").performClick()
+        compose.waitForIdle()
+        shot("phone_forms_last_word")
+        compose.onNodeWithText("wanted").performClick()
+        compose.waitForIdle()
+        assertTrue("want became wanted", hasText("wanted"))
+        assertEquals("only I and wanted in the message", 1, compose.onAllNodesWithText("wanted").fetchSemanticsNodes().size)
+        // Again on the changed word: forms of "want", not of "wanted".
+        compose.onNodeWithContentDescription("Forms").performClick()
+        compose.onNodeWithText("wants").performClick()
+        compose.waitForIdle()
+        assertTrue(hasText("wants") && !hasText("wanted"))
+    }
+
+    @Test
+    fun formsWithEmptyMessageWaitsForTheNextWord() {
+        launch()
+        compose.onNodeWithContentDescription("Forms").performClick()
+        compose.waitForIdle()
+        assertTrue("says what to do", hasText("Forms: tap a word", substring = true))
+        compose.onNodeWithContentDescription("go").performClick()
+        compose.onNodeWithText("went").performClick()
+        compose.waitForIdle()
+        assertTrue(hasText("went"))
+    }
+
+    @Test
+    fun cropKeepsZoomedPhotoInsideTheFrame() {
+        val bitmap = Bitmap.createBitmap(800, 400, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }
+        launch()
+        compose.activity.runOnUiThread {
+            compose.activity.setContent { com.robbyolivam.aac.ui.CropDialog(bitmap, onDone = {}, onCancel = {}) }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithText("Drag to move · pinch to zoom").assertExists()
+        val dialog = compose.onAllNodes(isRoot()).onLast()
+        dialog.performTouchInput { pinch(center - Offset(20f, 0f), center + Offset(20f, 0f), center - Offset(400f, 0f), center + Offset(400f, 0f)) }
+        compose.waitForIdle()
+        compose.onNodeWithText("Use").assertExists()
+        dialog.captureRoboImage("build/screenshots/phone_crop_zoomed.png")
+    }
+
+    @Test
+    fun firstRunOffersTheTourAndItWalksThrough() {
+        launch(firstRun = true)
+        assertTrue(hasText("Welcome to your talker"))
+        shot("phone_welcome_offer")
+        compose.onNodeWithText("Take the tour").performClick()
+        compose.waitForIdle()
+        assertTrue(app.settings.settings.value.tutorialOffered)
+        var step = 0
+        while (!hasText("Done")) {
+            if (step in setOf(1, 3, 5)) shot("phone_tour_step_$step")
+            compose.onNodeWithText("Next").performClick()
+            compose.waitForIdle()
+            step++
+        }
+        assertEquals(com.robbyolivam.aac.ui.tutorialSteps.lastIndex, step)
+        compose.onNodeWithText("Done").performClick()
+        compose.waitForIdle()
+        assertTrue("tour closed", !hasText("You're ready!"))
+        compose.onNodeWithContentDescription("want").performClick() // board works again
+        assertTrue(hasText("want"))
+    }
+
+    @Test
+    fun tourCanBeDeclinedAndIsNotOfferedAgain() {
+        launch(firstRun = true)
+        compose.onNodeWithText("Not now").performClick()
+        compose.waitForIdle()
+        assertTrue(app.settings.settings.value.tutorialOffered)
+        compose.activityRule.scenario.recreate()
+        compose.waitForIdle()
+        assertTrue(!hasText("Welcome to your talker"))
+    }
+
+    @Test
+    fun settingsHasProminentEditAndHowToUse() {
+        launch { app.settings.update { it.copy(settingsLock = SettingsLock.NONE) } }
+        compose.onNodeWithContentDescription("Settings").performClick()
+        shot("phone_settings_top_cards")
+        compose.onNodeWithText("How to use").performClick()
+        compose.waitForIdle()
+        assertTrue(hasText("Take the tour", substring = true))
+        assertTrue(hasText("The main screen"))
+        compose.onNode(hasScrollAction()).performScrollToNode(androidx.compose.ui.test.hasText("Editing boards"))
+        compose.onNodeWithText("Editing boards").performClick()
+        compose.waitForIdle()
+        shot("phone_help_manual")
+        compose.onNode(hasScrollAction()).performScrollToIndex(0)
+        compose.onAllNodesWithText("Take the tour", substring = true).onFirst().performClick()
+        compose.waitForIdle()
+        assertTrue("tour starts on the main screen", hasText("Welcome!"))
+    }
+
+    @Test
+    fun manualCoversTheFeatures() {
+        val manual = java.io.File("src/main/assets/help/manual.md").readText()
+        val sections = com.robbyolivam.aac.ui.parseManual(manual)
+        assertTrue(sections.size >= 15)
+        // Keep the guide in step with the app: each of these features must be explained.
+        listOf(
+            "Edit boards", "Add a word", "Forms", "Find", "Phrases", "Quick strip", "Abbreviations", "Tone",
+            "Expand my words", "Voice age", "Pronunciations", "Private earbud", "Preview on first tap", "Hold time",
+            "Slide to select", "Switch scanning", "Vocabulary level", "Explore", "Copy", "Duplicate page", "crop",
+            "Photo scenes", "Usage report", "pause", "Export CSV", "backup", "Open Board Format", "PDF", "Lock to this app",
+        ).forEach { feature -> assertTrue("manual explains $feature", manual.contains(feature, ignoreCase = true)) }
     }
 
     @Test

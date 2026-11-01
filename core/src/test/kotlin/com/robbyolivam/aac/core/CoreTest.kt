@@ -530,3 +530,27 @@ class ExpansionCheckTest {
         assertNull(ExpansionCheck.accept("want juice", "I want juice " + "very ".repeat(20)))
     }
 }
+
+class SymbolContextTest {
+    @Test
+    fun tabletIsAComputerNotPills() {
+        val tablet = DefaultVocabulary.create().board("things")!!.cells.filterNotNull().single { it.label == "tablet" }
+        assertEquals("c:tablet", tablet.symbol.libraryId)
+    }
+
+    @Test
+    fun upgradeFixesUnchangedPicturesOnly() {
+        val fresh = DefaultVocabulary.create()
+        fun Vocabulary.withSymbol(board: String, label: String, id: String) = updateBoard(board) { b ->
+            b.copy(cells = b.cells.map { c -> if (c?.label == label) c.copy(symbol = c.symbol.copy(libraryId = id)) else c })
+        }
+        val old = fresh.withSymbol("things", "tablet", "m:2768")      // the old pills picture
+            .withSymbol("body", "nails", "m:1111")                      // a person chose their own
+            .copy(version = 3)
+        val migrated = DefaultVocabulary.migrate(old)
+        fun Vocabulary.symbolOf(board: String, label: String) = board(board)!!.cells.filterNotNull().single { it.label == label }.symbol.libraryId
+        assertEquals("c:tablet", migrated.symbolOf("things", "tablet"))
+        assertEquals("m:1111", migrated.symbolOf("body", "nails"))
+        assertEquals(Vocabulary.CURRENT_VERSION, migrated.version)
+    }
+}

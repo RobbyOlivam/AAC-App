@@ -204,6 +204,7 @@ fun BoardGrid(
         }
     }
 
+    val firstFolder = board.cells.indexOfFirst { it?.action == CellAction.FOLDER }
     Column(modifier.then(dwellModifier).padding(pad)) {
         for (row in 0 until board.rows) {
             Row(Modifier.weight(1f).fillMaxWidth()) {
@@ -220,7 +221,7 @@ fun BoardGrid(
                         media = media,
                         onSelect = { onSelect(index, cell) },
                         onLongPress = { onLongPress(cell) },
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        modifier = Modifier.weight(1f).fillMaxHeight().then(if (index == firstFolder) Modifier.tutorialAnchor("folder") else Modifier),
                         gap = 2.dp,
                         exploring = exploring,
                         touchEnabled = !dwellOn,

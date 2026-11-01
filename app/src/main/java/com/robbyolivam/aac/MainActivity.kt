@@ -19,6 +19,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -30,6 +32,8 @@ import com.robbyolivam.aac.ui.LocalSymbolLibrary
 import com.robbyolivam.aac.ui.LocalSymbolStyle
 import com.robbyolivam.aac.ui.Panel
 import com.robbyolivam.aac.ui.ReportScreen
+import com.robbyolivam.aac.ui.HelpScreen
+import com.robbyolivam.aac.ui.LocalTutorialAnchors
 import com.robbyolivam.aac.ui.Screen
 import com.robbyolivam.aac.ui.SettingsScreen
 import com.robbyolivam.aac.ui.theme.AacTheme
@@ -67,9 +71,11 @@ class MainActivity : ComponentActivity() {
                 if (Build.VERSION.SDK_INT >= 27) setShowWhenLocked(settings.showOnLockScreen)
             }
             AacTheme(settings.themeMode) {
+              val tutorialAnchors = remember { mutableStateMapOf<String, androidx.compose.ui.geometry.Rect>() }
               CompositionLocalProvider(
                   LocalSymbolLibrary provides vm.symbols,
                   LocalSymbolStyle provides settings.symbolStyle,
+                  LocalTutorialAnchors provides tutorialAnchors,
               ) {
                 // Surface (not a plain Box) so text picks up the theme's on-background color in dark mode.
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -84,6 +90,7 @@ class MainActivity : ComponentActivity() {
                             }
                             Screen.SETTINGS -> SettingsScreen(vm)
                             Screen.REPORT -> ReportScreen(vm)
+                            Screen.HELP -> HelpScreen(vm)
                         }
                     }
                 }

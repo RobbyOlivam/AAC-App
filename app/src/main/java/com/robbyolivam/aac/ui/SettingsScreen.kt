@@ -21,6 +21,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -150,9 +155,22 @@ fun SettingsScreen(vm: AacViewModel) {
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Button(onClick = vm::enterEditMode, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                Icon(Icons.Default.Edit, null)
-                Text("  Edit boards")
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                FeatureCard(
+                    icon = Icons.Default.Edit,
+                    title = "Edit boards",
+                    subtitle = "Add, change, move or hide buttons and pages",
+                    onClick = vm::enterEditMode,
+                    modifier = Modifier.weight(1.3f),
+                    primary = true,
+                )
+                FeatureCard(
+                    icon = Icons.Default.HelpOutline,
+                    title = "How to use",
+                    subtitle = "Take the tour or read the guide",
+                    onClick = { vm.screen = Screen.HELP },
+                    modifier = Modifier.weight(1f),
+                )
             }
 
             Header("Voice")
@@ -508,6 +526,34 @@ private fun SnapshotDialog(vm: AacViewModel, onDismiss: () -> Unit, onRestored: 
     )
 }
 
+/** A large, tappable card for the most important destinations in settings. */
+@Composable
+private fun FeatureCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    primary: Boolean = false,
+) {
+    val container = if (primary) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer
+    val content = if (primary) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
+    Surface(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 112.dp),
+        shape = RoundedCornerShape(18.dp),
+        color = container,
+        contentColor = content,
+        shadowElevation = 3.dp,
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Icon(icon, null, Modifier.size(34.dp))
+            Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(subtitle, fontSize = 13.sp, lineHeight = 16.sp)
+        }
+    }
+}
+
 /** On-device Gemini "Expand my words": switch plus whether this phone can run it. */
 @Composable
 private fun ExpandWordsSetting(vm: AacViewModel, enabled: Boolean, onChange: (Boolean) -> Unit) {
@@ -523,8 +569,9 @@ private fun ExpandWordsSetting(vm: AacViewModel, enabled: Boolean, onChange: (Bo
     when (val st = state) {
         ExpanderState.Checking -> Text("Checking this phone…", fontSize = 13.sp)
         ExpanderState.Unsupported -> Text(
-            "Not available on this phone: it needs on-device Gemini (Android AICore), found on recent Pixels such as the Pixel 9 and later. " +
-                "The grammar helper's suggestions still work.",
+            "Not available on this phone. Google lets apps use on-device Gemini only on some phones: the Pixel 9, 9 Pro, 9 Pro XL " +
+                "and 9 Pro Fold, the Pixel 10 series, and a few other flagships (not the Pixel 8a or 9a). " +
+                "The grammar helper's sentence suggestions still work.",
             fontSize = 13.sp, color = MaterialTheme.colorScheme.error,
         )
         ExpanderState.NeedsDownload -> Row(verticalAlignment = Alignment.CenterVertically) {

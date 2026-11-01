@@ -135,7 +135,7 @@ fun CommunicationScreen(vm: AacViewModel) {
             vm.panel = if (vm.panel == Panel.KEYBOARD) Panel.BOARD else Panel.KEYBOARD
         },
         NavAction("phrases", Icons.Default.Forum, "Phrases", guideRoot == vocabulary.phrasesBoardId) { vm.openPhrases() },
-        NavAction("forms", Icons.Default.Spellcheck, "Forms", vm.formsMode) { vm.formsMode = !vm.formsMode },
+        NavAction("forms", Icons.Default.Spellcheck, "Forms", vm.formsMode) { vm.formsPressed() },
         NavAction("find", Icons.Default.Search, "Find", false) { vm.searchOpen = true },
         if (!settings.showExploreButton) null else NavAction("explore", Icons.Default.Explore, if (vm.exploring) "Exploring" else "Explore", vm.exploring) { vm.exploring = !vm.exploring },
         NavAction("settings", Icons.Default.Settings, "Settings", false, openSettings),
@@ -156,58 +156,65 @@ fun CommunicationScreen(vm: AacViewModel) {
 
         if (landscape) {
             Row(Modifier.fillMaxSize()) {
-                Column(Modifier.width(84.dp).fillMaxHeight().background(MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.width(84.dp).fillMaxHeight().background(MaterialTheme.colorScheme.surface).tutorialAnchor("nav")) {
                     nav.forEach { action ->
-                        NavItem(action, settings, isScanned("nav", action.id), holdToast, Modifier.weight(1f).fillMaxWidth())
+                        NavItem(action, settings, isScanned("nav", action.id), holdToast, Modifier.weight(1f).fillMaxWidth().navAnchor(action.id))
                     }
                 }
                 Column(Modifier.weight(1f).fillMaxHeight()) {
                     if (vm.editMode) EditBanner(vm, board)
                     if (compactHeight) {
                         Row(Modifier.fillMaxWidth().height(64.dp)) {
-                            MessageBar(vm, isScanned, Modifier.weight(1.3f).fillMaxHeight())
-                            PredictionRow(vm, predictions, isScanned, Modifier.weight(1f).fillMaxHeight())
+                            MessageBar(vm, isScanned, Modifier.tutorialAnchor("message").weight(1.3f).fillMaxHeight())
+                            PredictionRow(vm, predictions, isScanned, Modifier.tutorialAnchor("predictions").weight(1f).fillMaxHeight())
                         }
                     } else {
-                        MessageBar(vm, isScanned, Modifier.fillMaxWidth().height(76.dp))
-                        PredictionRow(vm, predictions, isScanned, Modifier.fillMaxWidth().height(48.dp))
+                        MessageBar(vm, isScanned, Modifier.tutorialAnchor("message").fillMaxWidth().height(76.dp))
+                        PredictionRow(vm, predictions, isScanned, Modifier.tutorialAnchor("predictions").fillMaxWidth().height(48.dp))
                     }
                     if (settings.showToneButtons && !vm.editMode) ToneRow(vm, isScanned, Modifier.fillMaxWidth().height(44.dp))
                     if (guide != null) GuideBanner(guide.cell.label, onCancel = vm::cancelGuide)
                     if (showBackBar) BackBar(vm, board, vocabulary, isScanned, compact = compactHeight)
-                    boardArea(Modifier.weight(1f).fillMaxWidth())
+                    boardArea(Modifier.weight(1f).fillMaxWidth().tutorialAnchor("board"))
                 }
-                Column(Modifier.width(if (compactHeight) 92.dp else 110.dp).fillMaxHeight().padding(vertical = 2.dp)) {
+                Column(Modifier.width(if (compactHeight) 92.dp else 110.dp).fillMaxHeight().padding(vertical = 2.dp).tutorialAnchor("strip")) {
                     QuickStripItems(vm, vocabulary.quickStrip, settings, isScanned) { Modifier.weight(1f).fillMaxWidth().padding(2.dp) }
                 }
             }
         } else {
             Column(Modifier.fillMaxSize()) {
                 if (vm.editMode) EditBanner(vm, board)
-                MessageBar(vm, isScanned, Modifier.fillMaxWidth().height(76.dp))
-                PredictionRow(vm, predictions, isScanned, Modifier.fillMaxWidth().height(48.dp))
+                MessageBar(vm, isScanned, Modifier.tutorialAnchor("message").fillMaxWidth().height(76.dp))
+                PredictionRow(vm, predictions, isScanned, Modifier.tutorialAnchor("predictions").fillMaxWidth().height(48.dp))
                 if (settings.showToneButtons && !vm.editMode) ToneRow(vm, isScanned, Modifier.fillMaxWidth().height(44.dp))
                 if (guide != null) GuideBanner(guide.cell.label, onCancel = vm::cancelGuide)
                 if (showBackBar) BackBar(vm, board, vocabulary, isScanned, compact = false)
-                boardArea(Modifier.weight(1f).fillMaxWidth())
-                Row(Modifier.fillMaxWidth().height(60.dp).padding(horizontal = 2.dp)) {
+                boardArea(Modifier.weight(1f).fillMaxWidth().tutorialAnchor("board"))
+                Row(Modifier.fillMaxWidth().height(60.dp).padding(horizontal = 2.dp).tutorialAnchor("strip")) {
                     QuickStripItems(vm, vocabulary.quickStrip, settings, isScanned) { Modifier.weight(1f).fillMaxHeight().padding(2.dp) }
                 }
-                Row(Modifier.fillMaxWidth().height(60.dp).background(MaterialTheme.colorScheme.surface).padding(horizontal = 2.dp)) {
+                Row(Modifier.fillMaxWidth().height(60.dp).background(MaterialTheme.colorScheme.surface).padding(horizontal = 2.dp).tutorialAnchor("nav")) {
                     nav.forEach { action ->
-                        NavItem(action, settings, isScanned("nav", action.id), holdToast, Modifier.weight(1f).fillMaxHeight())
+                        NavItem(action, settings, isScanned("nav", action.id), holdToast, Modifier.weight(1f).fillMaxHeight().navAnchor(action.id))
                     }
                 }
             }
         }
 
         if (scanning && settings.scanTouchAnywhere) ScanTouchOverlay(settings.scanMode, scanner)
+
+        val tourStep = vm.tutorialStep
+        val anchors = LocalTutorialAnchors.current
+        when {
+            tourStep != null && anchors != null -> TutorialOverlay(tourStep, anchors, vm::tutorialBack, vm::tutorialNext, vm::endTutorial)
+            !settings.tutorialOffered && !vm.editMode -> WelcomeOffer(onStart = vm::startTutorial, onLater = vm::declineTutorial)
+        }
     }
 
     if (askPin) {
         PinDialog(expected = settings.pin, onSuccess = { askPin = false; vm.screen = Screen.SETTINGS }, onDismiss = { askPin = false })
     }
-    vm.formsFor?.let { cell -> WordFormsDialog(cell, vm.media, onPick = { vm.selectForm(cell, it) }, onDismiss = { vm.formsFor = null }) }
+    vm.formsFor?.let { cell -> WordFormsDialog(cell, vm.media, onPick = { vm.selectForm(cell, it) }, onDismiss = vm::dismissForms) }
     if (vm.searchOpen) SearchDialog(vm, vm.media, onDismiss = { vm.searchOpen = false })
     if (vm.showPartner) PartnerDisplay(vm.messageText(), onSpeak = vm::speakMessage, onClose = { vm.showPartner = false })
     vm.editing?.let { target -> EditCellDialog(vm, target) }
@@ -377,9 +384,16 @@ private fun MessageBar(vm: AacViewModel, isScanned: (String, String) -> Boolean,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             if (vm.message.isEmpty() && vm.typing.isEmpty()) {
-                Text("Tap words to build a message", color = MaterialTheme.colorScheme.outline, fontSize = 16.sp)
+                Text(
+                    if (vm.formsMode) "Forms: tap a word to pick its form (wants, wanted…)" else "Tap words to build a message",
+                    color = if (vm.formsMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                    fontSize = 16.sp,
+                )
             }
             vm.message.forEach { token -> MessageChip(token.text, token.symbol, vm) }
+            if (vm.formsMode && vm.message.isNotEmpty()) {
+                Text("· Forms: tap a word", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
+            }
             if (vm.typing.isNotEmpty()) {
                 Text(vm.typing + "▏", fontSize = 22.sp, color = MaterialTheme.colorScheme.onSurface)
             }
@@ -456,6 +470,9 @@ private fun PredictionRow(vm: AacViewModel, predictions: Predictions, isScanned:
         }) { Icon(Icons.Default.Share, "Share message") }
     }
 }
+
+@Composable
+private fun Modifier.navAnchor(id: String): Modifier = if (id == "settings") tutorialAnchor("nav-settings") else this
 
 /** Say the whole message as a question, excited, whispered… One tap, no mode to switch off. */
 @Composable

@@ -49,12 +49,14 @@ class SymbolLibrary(private val context: Context) {
 
     /**
      * Symbols matching [query]: exact name first, then names starting with it, then names
-     * containing it, then tags. Mulberry (made for AAC) ranks ahead of OpenMoji on ties.
+     * containing it, then tags. Within each, symbols whose tags fit [context] (the folder's topic)
+     * come first; then Mulberry (made for AAC) and this app's own symbols ahead of OpenMoji.
      */
-    fun search(query: String, limit: Int = 60): List<LibrarySymbol> {
+    fun search(query: String, limit: Int = 60, context: List<String> = emptyList()): List<LibrarySymbol> {
         val q = query.trim().lowercase()
         if (q.isEmpty()) return emptyList()
         val words = Regex("\\b${Regex.escape(q)}")
+        val topic = context.map { Regex("\\b${Regex.escape(it.lowercase())}") }
         return index.mapNotNull { s ->
             val name = s.name.lowercase()
             val rank = when {
@@ -64,7 +66,10 @@ class SymbolLibrary(private val context: Context) {
                 words.containsMatchIn(s.tags.lowercase()) -> 3
                 else -> return@mapNotNull null
             }
-            Triple(rank, if (s.set == "m") 0 else 1, s)
+            // Among equally good name matches, pictures from the folder's topic come first
+            // (in Things, "tablet" should be a computer, not pills).
+            val offTopic = if (topic.isEmpty() || topic.any { it.containsMatchIn(s.tags.lowercase()) }) 0 else 1
+            Triple(rank * 2 + offTopic, if (s.set == "o") 1 else 0, s)
         }.sortedWith(compareBy({ it.first }, { it.second }, { it.third.name.length }))
             .take(limit)
             .map { it.third }
