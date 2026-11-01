@@ -476,3 +476,57 @@ class ToneTest {
         assertEquals(0.8f, Tone.QUESTION.volume(0.8f))
     }
 }
+
+class WordWizardTest {
+    private val v = DefaultVocabulary.create()
+
+    @Test
+    fun guessesTypeFromSymbolHints() {
+        assertEquals(WordType.VERB, WordWizard.guessType("bake", "Verb", "cooking Kitchen"))
+        assertEquals(WordType.NOUN, WordWizard.guessType("banana", "Noun", "fruit Food Fruit"))
+        assertEquals(WordType.ADJECTIVE, WordWizard.guessType("shiny", "Noun", "Descriptive State"))
+        assertEquals(WordType.PERSON, WordWizard.guessType("nurse", "Noun", "job Profession Healthcare"))
+        assertEquals(WordType.ADVERB, WordWizard.guessType("quickly", null, null))
+    }
+
+    @Test
+    fun plansFolderAndEmptySlot() {
+        val banana = WordWizard.plan("banana", "Noun", "fruit Food Fruit", v)
+        assertEquals("food", banana.boardId)
+        val food = v.board("food")!!
+        assertEquals(food.cells.indexOfFirst { it == null }.takeIf { it >= 0 }, banana.index)
+        assertEquals("actions", WordWizard.plan("bake", "Verb", "cooking", v).boardId)
+        assertEquals("things", WordWizard.plan("gizmo", null, null, v).boardId)
+        assertEquals("health", WordWizard.plan("plaster", "Noun", "Healthcare First aid", v).boardId)
+    }
+
+    @Test
+    fun fullFolderFallsBackToOneWithRoom() {
+        fun fill(b: Board) = b.copy(cells = b.cells.map { it ?: Cell("x-${java.util.UUID.randomUUID()}", "x") })
+        val bothFull = v.updateBoard("actions", ::fill).updateBoard("more-actions", ::fill)
+        // Nowhere free: still the right folder, but no spot, so the wizard asks.
+        assertEquals("actions", WordWizard.plan("bake", "Verb", null, bothFull).boardId)
+        assertNull(WordWizard.plan("bake", "Verb", null, bothFull).index)
+        val roomInMore = bothFull.setCell("more-actions", 5, null)
+        val plan = WordWizard.plan("bake", "Verb", null, roomInMore)
+        assertEquals("more-actions", plan.boardId)
+        assertEquals(5, plan.index)
+    }
+}
+
+class ExpansionCheckTest {
+    @Test
+    fun acceptsSentencesThatKeepTheWords() {
+        assertEquals("I want some juice, please.", ExpansionCheck.accept("want juice", "I want some juice, please."))
+        assertEquals("She goes to the park.", ExpansionCheck.accept("she go park", "\"She goes to the park.\"\nExtra line"))
+        assertEquals("I went home yesterday.", ExpansionCheck.accept("I go home yesterday", "I went home yesterday."))
+    }
+
+    @Test
+    fun rejectsChangedMeaningOrRunaways() {
+        assertNull(ExpansionCheck.accept("want juice", "I want some milk."))
+        assertNull(ExpansionCheck.accept("want juice", null))
+        assertNull(ExpansionCheck.accept("want juice", "want juice"))
+        assertNull(ExpansionCheck.accept("want juice", "I want juice " + "very ".repeat(20)))
+    }
+}

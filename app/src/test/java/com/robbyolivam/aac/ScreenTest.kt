@@ -7,6 +7,7 @@ import android.graphics.Paint
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -14,6 +15,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -378,6 +381,49 @@ class ScreenTest {
         assertTrue("second tap on the same button uses it", !hasText("Tap words to build a message"))
         assertEquals(1, compose.onAllNodesWithText("go").fetchSemanticsNodes().size)
         compose.onNodeWithContentDescription("Help").performClick() // quick strip: never needs two taps
+    }
+
+    @Test
+    fun addWordWizardPlacesTheWord() {
+        launch { app.settings.update { it.copy(settingsLock = SettingsLock.NONE) } }
+        compose.onNodeWithContentDescription("Settings").performClick()
+        compose.onNodeWithText("Edit boards", substring = true).performClick()
+        compose.onNodeWithContentDescription("Add a word").performClick()
+        compose.onNode(hasSetTextAction()).performTextInput("mango")
+        compose.waitForIdle()
+        shot("phone_add_word_wizard")
+        compose.onNodeWithText("Add").performClick()
+        compose.waitForIdle()
+        val food = app.vocabulary.vocabulary.value.board("food")!!
+        val mango = food.cells.filterNotNull().single { it.label == "mango" }
+        assertEquals(com.robbyolivam.aac.core.WordType.NOUN, mango.type)
+        assertEquals("the Mulberry mango symbol", "m:1888", mango.symbol.libraryId)
+        assertTrue("shows the folder it went into", hasText("Editing “Food”"))
+        shot("phone_add_word_result")
+    }
+
+    @Test
+    fun addWordWizardFlagsExistingWordsAndGuessesVerbs() {
+        launch { app.settings.update { it.copy(settingsLock = SettingsLock.NONE) } }
+        compose.onNodeWithContentDescription("Settings").performClick()
+        compose.onNodeWithText("Edit boards", substring = true).performClick()
+        compose.onNodeWithContentDescription("Add a word").performClick()
+        compose.onNode(hasSetTextAction()).performTextInput("pizza")
+        compose.waitForIdle()
+        assertTrue(hasText("is already on", substring = true))
+        compose.onNode(hasSetTextAction()).performTextReplacement("bake")
+        compose.waitForIdle()
+        assertTrue("verb forms shown", hasText("bakes", substring = true))
+    }
+
+    @Test
+    fun expandWordsSettingFailsGracefullyWithoutGemini() {
+        launch { app.settings.update { it.copy(settingsLock = SettingsLock.NONE, expandWords = true) } }
+        listOf("want", "more").forEach { compose.onNodeWithContentDescription(it).performClick() }
+        compose.onNodeWithContentDescription("Settings").performClick()
+        compose.onNodeWithText("Expand my words (on-device AI)").performScrollTo()
+        compose.waitUntil(10_000) { hasText("Not available on this phone", substring = true) || hasText("Checking this phone…") }
+        shot("phone_settings_expand_words")
     }
 
     @Test

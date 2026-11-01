@@ -1,6 +1,7 @@
 package com.robbyolivam.aac
 
 import android.app.Application
+import com.robbyolivam.aac.ai.WordExpander
 import com.robbyolivam.aac.data.BackupManager
 import com.robbyolivam.aac.data.MediaFiles
 import com.robbyolivam.aac.data.OpenBoardFiles
@@ -35,6 +36,7 @@ class AacApplication : Application() {
         private set
     lateinit var usage: UsageStore
         private set
+    val expander by lazy { WordExpander() }
 
     override fun onCreate() {
         super.onCreate()
