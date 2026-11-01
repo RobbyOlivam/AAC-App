@@ -113,7 +113,7 @@ fun CommunicationScreen(vm: AacViewModel) {
     val guideRoot = guide?.path?.first()?.boardId?.takeIf { guideOnBoard == null }
     val showBackBar = vm.panel == Panel.KEYBOARD || board.id != vocabulary.homeBoardId
     val predictions = Predictions(
-        suggestion = vm.sentenceSuggestion(),
+        suggestion = vm.polishSuggestion(),
         board = if (settings.showPredictions && !vm.editMode && vm.panel == Panel.BOARD) vm.boardPredictions() else emptyList(),
         keyboard = if (settings.showPredictions && !vm.editMode && vm.panel == Panel.KEYBOARD) vm.keyboardPredictions() else emptyList(),
     )

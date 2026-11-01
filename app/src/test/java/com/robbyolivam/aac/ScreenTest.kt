@@ -19,6 +19,13 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.pinch
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.platform.testTag
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
@@ -426,15 +433,6 @@ class ScreenTest {
         assertTrue("verb forms shown", hasText("bakes", substring = true))
     }
 
-    @Test
-    fun expandWordsSettingFailsGracefullyWithoutGemini() {
-        launch { app.settings.update { it.copy(settingsLock = SettingsLock.NONE, expandWords = true) } }
-        listOf("want", "more").forEach { compose.onNodeWithContentDescription(it).performClick() }
-        compose.onNodeWithContentDescription("Settings").performClick()
-        compose.onNodeWithText("Expand my words (on-device AI)").performScrollTo()
-        compose.waitUntil(10_000) { hasText("Not available on this phone", substring = true) || hasText("Checking this phone…") }
-        shot("phone_settings_expand_words")
-    }
 
     @Test
     fun formsChangesTheLastWord() {
@@ -507,6 +505,37 @@ class ScreenTest {
     }
 
     @Test
+    fun tourSpotlightLinesUpBelowAStatusBar() {
+        // Phones draw the app below the status bar; the tour must still land on its targets.
+        launch()
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                val anchors = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateMapOf<String, androidx.compose.ui.geometry.Rect>() }
+                androidx.compose.runtime.CompositionLocalProvider(com.robbyolivam.aac.ui.LocalTutorialAnchors provides anchors) {
+                    androidx.compose.foundation.layout.Column {
+                        androidx.compose.foundation.layout.Spacer(androidx.compose.ui.Modifier.height(48.dp)) // the "status bar"
+                        androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
+                            androidx.compose.foundation.layout.Box(
+                                with(com.robbyolivam.aac.ui.TutorialTestHooks) {
+                                    androidx.compose.ui.Modifier.offset(30.dp, 120.dp).size(200.dp, 60.dp).testTag("target").anchor("message")
+                                },
+                            )
+                            com.robbyolivam.aac.ui.TutorialOverlay(1, anchors, {}, {}, {})
+                        }
+                    }
+                }
+            }
+        }
+        compose.waitForIdle()
+        val target = compose.onNodeWithTag("target").fetchSemanticsNode().boundsInRoot
+        val spot = compose.onNodeWithTag("tour-spotlight").fetchSemanticsNode().boundsInRoot
+        assertEquals(target.top, spot.top, 1f)
+        assertEquals(target.left, spot.left, 1f)
+        assertEquals(target.bottom, spot.bottom, 1f)
+        assertEquals(target.right, spot.right, 1f)
+    }
+
+    @Test
     fun tourCanBeDeclinedAndIsNotOfferedAgain() {
         launch(firstRun = true)
         compose.onNodeWithText("Not now").performClick()
@@ -544,7 +573,7 @@ class ScreenTest {
         // Keep the guide in step with the app: each of these features must be explained.
         listOf(
             "Edit boards", "Add a word", "Forms", "Find", "Phrases", "Quick strip", "Abbreviations", "Tone",
-            "Expand my words", "Voice age", "Pronunciations", "Private earbud", "Preview on first tap", "Hold time",
+            "Voice age", "Pronunciations", "Private earbud", "Preview on first tap", "Hold time",
             "Slide to select", "Switch scanning", "Vocabulary level", "Explore", "Copy", "Duplicate page", "crop",
             "Photo scenes", "Usage report", "pause", "Export CSV", "backup", "Open Board Format", "PDF", "Lock to this app",
         ).forEach { feature -> assertTrue("manual explains $feature", manual.contains(feature, ignoreCase = true)) }

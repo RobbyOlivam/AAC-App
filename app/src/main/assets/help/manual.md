@@ -9,7 +9,7 @@ The app speaks for you. Tap picture buttons to build a message, then tap the mes
 ## The main screen
 - **Message bar** (top): words you tap appear here. Tap it to say the whole message.
 - **Speak, delete, clear** (next to the message): say it, remove the last word, or start again.
-- **Suggestions** (under the message): likely next words, and a ✨ full-sentence idea. Nothing is said until you tap one.
+- **Suggestions** (under the message): likely next words, and a ✨ full-sentence idea from the grammar helper. Nothing is said until you tap one.
 - **Core words** (the big board): the words people use most. Their colours show the kind of word (yellow people, green actions, blue describing words…).
 - **Folders** (buttons with a little tab): open a page of words, like Food or Animals. **Back to Core** at the top of every page takes you back.
 - **Quick strip** (Yes, No, Stop, Help, Break, Hurts): always there, on every page. One tap says it straight away.
@@ -39,12 +39,6 @@ The app speaks for you. Tap picture buttons to build a message, then tap the mes
 - **Tone buttons** (turn on in Settings → Voice): say the message as a Question, Excited, Whisper, Loud, Sad or Sarcastic.
 - **Show message to partner** (the screen icon) shows the message in big letters, for noisy rooms.
 - **Share** sends the message as text to another app.
-
-## Expand my words (✨)
-On phones that support on-device Gemini (Pixel 9 series, Pixel 10 series and a few others), the app can turn a few words into a full sentence: "want juice" → "I want some juice, please."
-- Turn on in Settings → Board → **Expand my words**. Android may need to download the model once.
-- The sentence appears as the ✨ suggestion. It is only used if you tap it, and it must keep all your words.
-- On other phones (including the Pixel 8a and 9a) the setting says it isn't available; the regular grammar suggestions still work.
 
 ## Voice settings
 Settings → Voice:
