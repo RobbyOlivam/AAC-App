@@ -41,6 +41,15 @@ data class Settings(
     val voiceAge: VoiceAge = VoiceAge.ADULT,
     val speakOnSelect: Boolean = true,
     val speakLettersWhileTyping: Boolean = false,
+    /** A row of tone buttons (question, excited, whisper…) that say the message in that tone. */
+    val showToneButtons: Boolean = false,
+    /**
+     * Private earbud: scanning cues and previews go to a connected headset or earbud, while real
+     * speech always comes out of the phone's speaker.
+     */
+    val earbudPreview: Boolean = false,
+    /** First tap on a board button says it privately (preview); a second tap uses it. */
+    val previewTaps: Boolean = false,
     // Touch access
     val holdTimeMs: Int = 0,
     val acceptOnRelease: Boolean = true,

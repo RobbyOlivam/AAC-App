@@ -345,6 +345,42 @@ class ScreenTest {
     }
 
     @Test
+    fun toneButtonsSayTheMessageInATone() {
+        launch { app.settings.update { it.copy(showToneButtons = true, usageLogging = true) } }
+        listOf("you", "want", "more").forEach { compose.onNodeWithContentDescription(it).performClick() }
+        shot("phone_tone_row")
+        compose.onNodeWithContentDescription("Say message: Question").performClick()
+        compose.onNodeWithContentDescription("Say message: Excited").performClick()
+        compose.waitForIdle()
+        val spoken = app.usage.readAll().filter { it.utterance }.map { it.text }
+        assertEquals(listOf("you want more?", "you want more!"), spoken)
+    }
+
+    @Test
+    @Config(qualifiers = PIXEL_LAND)
+    fun toneRowLandscape() {
+        launch { app.settings.update { it.copy(showToneButtons = true) } }
+        shot("phone_land_tone_row")
+    }
+
+    @Test
+    fun previewOnFirstTapUsesOnSecond() {
+        launch { app.settings.update { it.copy(previewTaps = true) } }
+        compose.onNodeWithContentDescription("want").performClick()
+        compose.waitForIdle()
+        assertTrue("first tap only previews", hasText("Tap words to build a message"))
+        compose.onNodeWithContentDescription("go").performClick()
+        compose.onNodeWithContentDescription("want").performClick()
+        compose.waitForIdle()
+        assertTrue("moving to another button previews that one instead", hasText("Tap words to build a message"))
+        compose.onNodeWithContentDescription("want").performClick()
+        compose.waitForIdle()
+        assertTrue("second tap on the same button uses it", !hasText("Tap words to build a message"))
+        assertEquals(1, compose.onAllNodesWithText("go").fetchSemanticsNodes().size)
+        compose.onNodeWithContentDescription("Help").performClick() // quick strip: never needs two taps
+    }
+
+    @Test
     @Config(qualifiers = PIXEL_LAND)
     fun photoScene() {
         val bitmap = Bitmap.createBitmap(800, 600, Bitmap.Config.ARGB_8888)

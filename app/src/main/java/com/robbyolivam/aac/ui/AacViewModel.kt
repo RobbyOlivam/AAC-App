@@ -27,6 +27,7 @@ import com.robbyolivam.aac.core.WordLocation
 import com.robbyolivam.aac.core.WordType
 import com.robbyolivam.aac.core.addBoard
 import com.robbyolivam.aac.core.allWordCells
+import com.robbyolivam.aac.core.Tone
 import com.robbyolivam.aac.core.UsageEvent
 import com.robbyolivam.aac.core.UsageSource
 import com.robbyolivam.aac.core.applyPronunciations
@@ -37,7 +38,9 @@ import com.robbyolivam.aac.core.search
 import com.robbyolivam.aac.core.setCell
 import com.robbyolivam.aac.core.updateBoard
 import com.robbyolivam.aac.core.updateQuickStrip
+import com.robbyolivam.aac.data.ScanMode
 import com.robbyolivam.aac.data.Settings
+import com.robbyolivam.aac.speech.AudioOutput
 import java.util.UUID
 
 /** A word in the message bar, with the picture it came from. */
@@ -78,7 +81,7 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
     private val v: Vocabulary get() = store.vocabulary.value
     private val level: Int get() = s.vocabularyLevel
 
-    val scanner = Scanner(viewModelScope) { speak(it) }
+    val scanner = Scanner(viewModelScope) { preview(it) }
 
     init {
         viewModelScope.launch {
@@ -164,6 +167,9 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
         return false
     }
 
+    /** The button last previewed with "preview on first tap" ("board#index"). */
+    private var previewed: String? = null
+
     /** Whether a button responds: visible at this level, or anything while exploring. */
     fun usable(cell: Cell): Boolean = exploring || cell.visibleAt(level)
 
@@ -173,6 +179,16 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         if (cell == null || !usable(cell) || debounced()) return
+        if (s.previewTaps && s.scanMode == ScanMode.OFF) {
+            val key = "$boardId#$index"
+            if (previewed != key) {
+                // First tap: say it privately so the person can check before using it.
+                previewed = key
+                preview(if (cell.action == CellAction.FOLDER) cell.label else cell.text)
+                return
+            }
+            previewed = null
+        }
         advanceGuide(boardId, index)
         if (formsMode && cell.action == CellAction.WORD && EnglishMorphology.hasForms(cell.text, cell.type)) {
             formsMode = false
@@ -305,6 +321,20 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
     fun messageText(): String =
         (message.map { it.text } + listOfNotNull(typing.takeIf { it.isNotBlank() })).joinToString(" ")
 
+    /** Says the message in a [tone] (question, excited, whisper…). */
+    fun speakMessage(tone: Tone) {
+        val text = tone.apply(messageText())
+        if (text.isBlank()) return
+        logSpoken(text, UsageSource.MESSAGE)
+        val s = s
+        speaker.speak(
+            v.applyPronunciations(text), s.speechRate * tone.rate, s.pitch * tone.pitch, s.voiceName, s.voiceAge,
+            output = speechOutput, level = tone.volume(s.volume),
+        )
+        store.predictor.learn(messageText())
+        store.savePredictor()
+    }
+
     fun speakMessage() {
         val text = messageText()
         if (text.isBlank()) return
@@ -316,12 +346,20 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
 
     fun speakCell(cell: Cell) {
         val audio = cell.audioPath
-        if (audio != null) speaker.playFile(store.resolve(audio)) else speak(cell.text)
+        if (audio != null) speaker.playFile(store.resolve(audio), speechOutput) else speak(cell.text)
     }
 
-    fun speak(text: String) {
+    /** Real speech: out loud. With the private earbud on, forced to the phone speaker. */
+    private val speechOutput: AudioOutput get() = if (s.earbudPreview) AudioOutput.SPEAKER else AudioOutput.DEFAULT
+
+    fun speak(text: String) = speak(text, speechOutput)
+
+    /** A private preview (scanning cues, first-tap previews): in the earbud when that's on. */
+    fun preview(text: String) = speak(text, if (s.earbudPreview) AudioOutput.EARBUD else AudioOutput.DEFAULT)
+
+    private fun speak(text: String, output: AudioOutput) {
         val s = s
-        speaker.speak(v.applyPronunciations(text), s.speechRate, s.pitch, s.voiceName, s.voiceAge)
+        speaker.speak(v.applyPronunciations(text), s.speechRate, s.pitch, s.voiceName, s.voiceAge, output = output)
     }
 
     fun backspace() {
@@ -372,7 +410,7 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
 
     fun typeKey(key: String) {
         typing += key
-        if (s.speakLettersWhileTyping) speak(key)
+        if (s.speakLettersWhileTyping) preview(key)
     }
 
     fun typeSpace() {
@@ -392,13 +430,13 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
                 message.add(MessageToken(w, cell?.type, cell?.symbol))
                 logWord(w, UsageSource.KEYBOARD)
             }
-            if (s.speakLettersWhileTyping) speak(expansion)
+            if (s.speakLettersWhileTyping) preview(expansion)
             return
         }
         val cell = wordIndex()[word.lowercase()]
         message.add(MessageToken(word, cell?.type, cell?.symbol))
         logWord(word, UsageSource.KEYBOARD)
-        if (s.speakLettersWhileTyping) speak(word)
+        if (s.speakLettersWhileTyping) preview(word)
     }
 
     fun choosePrediction(word: String) {

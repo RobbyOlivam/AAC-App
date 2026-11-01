@@ -2,7 +2,9 @@ package com.robbyolivam.aac.speech
 
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioDeviceInfo
 import android.media.AudioFormat
+import android.media.AudioManager
 import android.media.AudioTrack
 import android.media.MediaPlayer
 import android.os.Bundle
@@ -20,12 +22,17 @@ import java.security.MessageDigest
 import java.util.Locale
 import kotlin.math.roundToInt
 
+/** Where speech goes: wherever Android routes it, the phone's own speaker, or a private earbud. */
+enum class AudioOutput { DEFAULT, SPEAKER, EARBUD }
+
 /**
- * Offline text-to-speech plus playback of recorded button audio. Teen and kid voice ages are
- * made by rendering speech to a file and playing it back faster (see [VoiceAge]); rendered
- * words are cached, since the same words get spoken over and over.
+ * Offline text-to-speech plus playback of recorded button audio. Teen and kid voice ages, and
+ * speech sent to a particular output (earbud or speaker), are made by rendering speech to a
+ * file and playing it with AudioTrack (see [VoiceAge]); rendered words are cached, since the
+ * same words get spoken over and over.
  */
 class Speaker(context: Context) : TextToSpeech.OnInitListener {
+    private val audioManager = context.applicationContext.getSystemService(AudioManager::class.java)
 
     private val tts = TextToSpeech(context.applicationContext, this)
     private var ready = false
@@ -38,13 +45,13 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
     /** 0–1, applied to speech, rendered voices and recorded button audio. */
     @Volatile var volume: Float = 1f
 
-    private fun params() = Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, volume) }
+    private fun params(level: Float) = Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, level) }
 
     /** The rendering we're waiting on, if any; older renderings finish silently into the cache. */
     @Volatile private var awaited: String? = null
     private val renders = java.util.concurrent.ConcurrentHashMap<String, Render>()
 
-    private class Render(val tmp: File, val file: File, val formant: Float)
+    private class Render(val tmp: File, val file: File, val formant: Float, val output: AudioOutput, val level: Float)
 
     private val _voices = MutableStateFlow<List<Voice>>(emptyList())
     val voices: StateFlow<List<Voice>> = _voices.asStateFlow()
@@ -70,7 +77,7 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
             override fun onDone(id: String) {
                 val render = renders.remove(id) ?: return
                 if (!render.tmp.renameTo(render.file)) return
-                if (awaited == id) play(render.file, render.formant)
+                if (awaited == id) play(render.file, render.formant, render.output, render.level)
             }
             @Deprecated("Deprecated in Java")
             override fun onError(id: String) = onError(id, TextToSpeech.ERROR)
@@ -97,35 +104,61 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
         pending = null
     }
 
-    fun speak(text: String, rate: Float, pitch: Float, voiceName: String?, age: VoiceAge = VoiceAge.ADULT) {
+    /**
+     * Says [text]. [output] picks where it plays; [level] overrides the volume setting (for
+     * tones such as whisper). Anything other than the default output and adult voice is rendered
+     * first, which adds a short delay the first time a word is said.
+     */
+    fun speak(
+        text: String,
+        rate: Float,
+        pitch: Float,
+        voiceName: String?,
+        age: VoiceAge = VoiceAge.ADULT,
+        output: AudioOutput = AudioOutput.DEFAULT,
+        level: Float = volume,
+    ) {
         if (text.isBlank()) return
         stopAudio()
         val action = {
             applyVoice(voiceName)
-            if (age == VoiceAge.ADULT) {
+            val target = output.takeIf { it == AudioOutput.DEFAULT || device(it) != null } ?: AudioOutput.DEFAULT
+            if (age == VoiceAge.ADULT && target == AudioOutput.DEFAULT) {
                 tts.setSpeechRate(rate)
                 tts.setPitch(pitch)
-                tts.speak(text, TextToSpeech.QUEUE_FLUSH, params(), "u${utteranceId++}")
+                tts.speak(text, TextToSpeech.QUEUE_FLUSH, params(level), "u${utteranceId++}")
             } else {
-                speakAged(text, rate, pitch, age)
+                speakRendered(text, rate, pitch, age, target, level)
             }
             Unit
         }
         if (ready) action() else pending = action
     }
 
-    private fun speakAged(text: String, rate: Float, pitch: Float, age: VoiceAge) {
+    /** Whether a headset or earbud (wired, USB or Bluetooth) is connected right now. */
+    fun earbudConnected(): Boolean = device(AudioOutput.EARBUD) != null
+
+    private fun device(output: AudioOutput): AudioDeviceInfo? {
+        val devices = runCatching { audioManager?.getDevices(AudioManager.GET_DEVICES_OUTPUTS) }.getOrNull().orEmpty()
+        return when (output) {
+            AudioOutput.DEFAULT -> null
+            AudioOutput.SPEAKER -> devices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+            AudioOutput.EARBUD -> devices.firstOrNull { it.type in EARBUD_TYPES }
+        }
+    }
+
+    private fun speakRendered(text: String, rate: Float, pitch: Float, age: VoiceAge, output: AudioOutput, level: Float) {
         tts.stop()
         val file = File(cacheDir, cacheKey(text, rate, pitch, age, appliedVoice) + ".wav")
         if (file.exists()) {
             awaited = null
             file.setLastModified(System.currentTimeMillis())
-            play(file, age.formant)
+            play(file, age.formant, output, level)
             return
         }
         cacheDir.mkdirs()
         val id = "a${utteranceId++}"
-        val render = Render(File(cacheDir, "$id.tmp"), file, age.formant)
+        val render = Render(File(cacheDir, "$id.tmp"), file, age.formant, output, level)
         renders[id] = render
         awaited = id
         tts.setSpeechRate(age.engineRate(rate))
@@ -133,16 +166,19 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
         if (tts.synthesizeToFile(text, Bundle(), render.tmp, id) != TextToSpeech.SUCCESS) {
             renders.remove(id)
             awaited = null
-            // Never go silent: say it in the normal voice instead.
+            // Never go silent: say it the ordinary way instead.
             tts.setSpeechRate(rate)
             tts.setPitch(pitch)
-            tts.speak(text, TextToSpeech.QUEUE_FLUSH, params(), "u${utteranceId++}")
+            tts.speak(text, TextToSpeech.QUEUE_FLUSH, params(level), "u${utteranceId++}")
         }
         trimCache()
     }
 
-    /** Plays a rendered WAV [speedUp] times faster, which raises pitch and formants together. */
-    private fun play(file: File, speedUp: Float) {
+    /**
+     * Plays a rendered WAV [speedUp] times faster (which raises pitch and formants together) on
+     * [output].
+     */
+    private fun play(file: File, speedUp: Float, output: AudioOutput, level: Float) {
         val pcm = runCatching { Wav.parse(file.readBytes()) }.getOrNull()
         if (pcm == null || pcm.frames == 0) {
             file.delete()
@@ -163,7 +199,8 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
                 .build()
                 .apply {
                     write(pcm.data, 0, pcm.data.size)
-                    setVolume(volume)
+                    setVolume(level)
+                    device(output)?.let { setPreferredDevice(it) }
                     play()
                 }
         }.onFailure { Log.e(TAG, "Playback failed", it) }.getOrNull() ?: return
@@ -205,7 +242,7 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
         voiceApplied = true
     }
 
-    fun playFile(file: File) {
+    fun playFile(file: File, output: AudioOutput = AudioOutput.DEFAULT) {
         if (!file.exists()) return
         tts.stop()
         stopAudio()
@@ -213,6 +250,7 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
             setAudioAttributes(attributes)
             setDataSource(file.absolutePath)
             setVolume(volume, volume)
+            if (android.os.Build.VERSION.SDK_INT >= 28) device(output)?.let { setPreferredDevice(it) }
             setOnCompletionListener { it.release(); if (player === it) player = null }
             prepare()
             start()
@@ -242,5 +280,12 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
     private companion object {
         const val TAG = "Speaker"
         const val MAX_CACHED = 300
+        val EARBUD_TYPES = setOf(
+            AudioDeviceInfo.TYPE_WIRED_HEADSET,
+            AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+            AudioDeviceInfo.TYPE_USB_HEADSET,
+            AudioDeviceInfo.TYPE_BLE_HEADSET,
+        )
     }
 }

@@ -61,3 +61,33 @@ enum class VoiceAge(val label: String, val formant: Float, val pitch: Float) {
     /** Pitch to ask the engine for; playback raises it by [formant] on top. */
     fun enginePitch(pitch: Float) = pitch * this.pitch / formant
 }
+
+/**
+ * Ways to say a message. The phone's speech engines don't take emotion directly, so each tone
+ * is speed, pitch, loudness and end punctuation (which changes the engine's intonation).
+ */
+enum class Tone(
+    val label: String,
+    val emoji: String,
+    val rate: Float,
+    val pitch: Float,
+    /** Multiplies the volume setting; [LOUD] always plays at full volume. */
+    val gain: Float,
+    private val ending: String,
+) {
+    QUESTION("Question", "❓", 1.0f, 1.08f, 1.0f, "?"),
+    EXCITED("Excited", "😃", 1.12f, 1.2f, 1.0f, "!"),
+    WHISPER("Whisper", "🤫", 0.9f, 0.92f, 0.35f, "."),
+    LOUD("Loud", "📢", 1.0f, 1.1f, 1.0f, "!"),
+    SAD("Sad", "😢", 0.8f, 0.85f, 0.8f, "."),
+    SARCASTIC("Sarcastic", "🙄", 0.8f, 0.95f, 1.0f, "."),
+    ;
+
+    /** The message with this tone's ending (replacing any end punctuation already there). */
+    fun apply(text: String): String {
+        val body = text.trim().trimEnd('.', '!', '?', ',', ';', ':')
+        return if (body.isEmpty()) "" else body + ending
+    }
+
+    fun volume(setting: Float): Float = if (this == LOUD) 1f else (setting * gain).coerceIn(0f, 1f)
+}
