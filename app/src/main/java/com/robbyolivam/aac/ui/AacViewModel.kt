@@ -28,6 +28,8 @@ import com.robbyolivam.aac.core.WordType
 import com.robbyolivam.aac.core.addBoard
 import com.robbyolivam.aac.core.allWordCells
 import com.robbyolivam.aac.core.applyPronunciations
+import com.robbyolivam.aac.core.duplicateBoard
+import com.robbyolivam.aac.core.expandAbbreviation
 import com.robbyolivam.aac.core.newBoard
 import com.robbyolivam.aac.core.search
 import com.robbyolivam.aac.core.setCell
@@ -76,7 +78,12 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
     val scanner = Scanner(viewModelScope) { speak(it) }
 
     init {
-        viewModelScope.launch { settingsStore.settings.collect { scanner.configure(it) } }
+        viewModelScope.launch {
+            settingsStore.settings.collect {
+                scanner.configure(it)
+                speaker.volume = it.volume
+            }
+        }
     }
 
     var currentBoardId by mutableStateOf(v.homeBoardId)
@@ -102,6 +109,13 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
     var guide by mutableStateOf<WordLocation?>(null)
         private set
     var showPartner by mutableStateOf(false)
+
+    /** Explore mode: words hidden by the vocabulary level (or hidden by hand) show and work, just for now. */
+    var exploring by mutableStateOf(false)
+
+    /** A button copied in edit mode, ready to paste into an empty spot. */
+    var clipboard by mutableStateOf<Cell?>(null)
+        private set
     var searchOpen by mutableStateOf(false)
 
     private var lastActivation = 0L
@@ -147,12 +161,15 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
         return false
     }
 
+    /** Whether a button responds: visible at this level, or anything while exploring. */
+    fun usable(cell: Cell): Boolean = exploring || cell.visibleAt(level)
+
     fun onCellSelected(boardId: String, index: Int, cell: Cell?) {
         if (editMode) {
             onEditTap(boardId, index, cell)
             return
         }
-        if (cell == null || !cell.visibleAt(level) || debounced()) return
+        if (cell == null || !usable(cell) || debounced()) return
         advanceGuide(boardId, index)
         if (formsMode && cell.action == CellAction.WORD && EnglishMorphology.hasForms(cell.text, cell.type)) {
             formsMode = false
@@ -172,7 +189,7 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onCellLongPress(cell: Cell?) {
-        if (editMode || cell == null || !cell.visibleAt(level) || cell.action != CellAction.WORD) return
+        if (editMode || cell == null || !usable(cell) || cell.action != CellAction.WORD) return
         if (EnglishMorphology.hasForms(cell.text, cell.type)) formsFor = cell
     }
 
@@ -299,8 +316,12 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
         return store.predictor.predictNext(previousWord(), limit, allowed = index.keys).mapNotNull { index[it] }
     }
 
-    fun keyboardPredictions(limit: Int = 6): List<String> =
-        store.predictor.complete(typing, previousWord(), limit)
+    fun keyboardPredictions(limit: Int = 6): List<String> {
+        val words = store.predictor.complete(typing, previousWord(), limit)
+        // A typed shortcut offers its full words first.
+        val expansion = v.expandAbbreviation(typing) ?: return words
+        return (listOf(expansion) + words).distinct().take(limit)
+    }
 
     fun polishSuggestion(): String? {
         if (!s.grammarHelper || message.size < 2) return null
@@ -333,6 +354,16 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
         val word = typing.trim()
         typing = ""
         if (word.isEmpty()) return
+        val expansion = v.expandAbbreviation(word)
+        if (expansion != null) {
+            val index = wordIndex()
+            expansion.split(' ').filter { it.isNotBlank() }.forEach { w ->
+                val cell = index[w.lowercase()]
+                message.add(MessageToken(w, cell?.type, cell?.symbol))
+            }
+            if (s.speakLettersWhileTyping) speak(expansion)
+            return
+        }
         val cell = wordIndex()[word.lowercase()]
         message.add(MessageToken(word, cell?.type, cell?.symbol))
         if (s.speakLettersWhileTyping) speak(word)
@@ -340,8 +371,11 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
 
     fun choosePrediction(word: String) {
         typing = ""
-        val cell = wordIndex()[word.lowercase()]
-        message.add(MessageToken(word, cell?.type, cell?.symbol))
+        val index = wordIndex()
+        word.split(' ').filter { it.isNotBlank() }.forEach { w ->
+            val cell = index[w.lowercase()]
+            message.add(MessageToken(w, cell?.type, cell?.symbol))
+        }
         if (s.speakOnSelect && panel == Panel.BOARD) speak(word)
     }
 
@@ -380,6 +414,26 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
 
     fun cancelMove() {
         moveSource = null
+    }
+
+    fun copyCell(cell: Cell) {
+        clipboard = cell
+        editing = null
+    }
+
+    /** Pastes the copied button into [target] as a new button (its own id). */
+    fun pasteInto(target: EditTarget.Grid) {
+        val cell = clipboard ?: return
+        store.edit { it.setCell(target.boardId, target.index, cell.copy(id = newCellId())) }
+        editing = null
+    }
+
+    /** Copies a page and opens the copy, so it can be changed without touching the original. */
+    fun duplicateBoard(boardId: String) {
+        val original = v.board(boardId) ?: return
+        val id = (if (original.isScene) "scene-" else "board-") + UUID.randomUUID().toString().take(8)
+        store.edit { it.duplicateBoard(boardId, id, "${original.name} (copy)", ::newCellId) }
+        navigate(id)
     }
 
     fun cellFor(target: EditTarget): Cell? = when (target) {
@@ -448,6 +502,16 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
     // ---- Settings --------------------------------------------------------------------------
 
     fun updateSettings(transform: (Settings) -> Settings) = settingsStore.update(transform)
+
+    fun setAbbreviation(shortcut: String, expansion: String?) {
+        val key = shortcut.trim().lowercase()
+        if (key.isEmpty() || key.contains(' ')) return
+        store.edit { voc ->
+            val map = voc.abbreviations.toMutableMap()
+            if (expansion.isNullOrBlank()) map.remove(key) else map[key] = expansion.trim()
+            voc.copy(abbreviations = map)
+        }
+    }
 
     fun setPronunciation(word: String, sayAs: String?) {
         if (word.isBlank()) return

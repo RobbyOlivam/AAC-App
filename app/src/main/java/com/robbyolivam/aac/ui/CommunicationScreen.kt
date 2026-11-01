@@ -31,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Backspace
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Forum
@@ -124,7 +125,7 @@ fun CommunicationScreen(vm: AacViewModel) {
             else -> vm.screen = Screen.SETTINGS
         }
     }
-    val nav = listOf(
+    val nav = listOfNotNull(
         NavAction("home", Icons.Default.Home, "Home", guideRoot == vocabulary.homeBoardId) { vm.goHome() },
         NavAction("abc", Icons.Default.Keyboard, "ABC", vm.panel == Panel.KEYBOARD) {
             vm.panel = if (vm.panel == Panel.KEYBOARD) Panel.BOARD else Panel.KEYBOARD
@@ -132,6 +133,7 @@ fun CommunicationScreen(vm: AacViewModel) {
         NavAction("phrases", Icons.Default.Forum, "Phrases", guideRoot == vocabulary.phrasesBoardId) { vm.openPhrases() },
         NavAction("forms", Icons.Default.Spellcheck, "Forms", vm.formsMode) { vm.formsMode = !vm.formsMode },
         NavAction("find", Icons.Default.Search, "Find", false) { vm.searchOpen = true },
+        if (!settings.showExploreButton) null else NavAction("explore", Icons.Default.Explore, if (vm.exploring) "Exploring" else "Explore", vm.exploring) { vm.exploring = !vm.exploring },
         NavAction("settings", Icons.Default.Settings, "Settings", false, openSettings),
     )
 
@@ -236,6 +238,7 @@ private fun BoardArea(
                 onBackgroundTap = { x, y -> vm.onSceneBackgroundTap(board.id, x, y) },
                 onMoveHotspot = { index, x, y -> vm.updateHotspot(board.id, index) { it.copy(x = x, y = y) } },
                 modifier = Modifier.fillMaxSize(),
+                exploring = vm.exploring,
             )
             else -> BoardGrid(
                 board = board,
@@ -248,6 +251,7 @@ private fun BoardArea(
                 onSelect = { index, cell -> vm.onCellSelected(board.id, index, cell) },
                 onLongPress = vm::onCellLongPress,
                 modifier = Modifier.fillMaxSize(),
+                exploring = vm.exploring && !vm.editMode,
             )
         }
     }
@@ -281,14 +285,14 @@ private fun buildScanGroups(
         }
         board.isScene -> {
             val items = board.scene!!.hotspots.mapIndexedNotNull { i, h ->
-                if (!h.cell.visibleAt(level)) null else ScanItem(scanHotspotId(i), h.cell.label) { vm.onCellSelected(board.id, i, h.cell) }
+                if (!vm.usable(h.cell)) null else ScanItem(scanHotspotId(i), h.cell.label) { vm.onCellSelected(board.id, i, h.cell) }
             }
             if (items.isNotEmpty()) add(ScanGroup(SCENE_GROUP, board.name, items))
         }
         else -> for (row in 0 until board.rows) {
             val items = (0 until board.cols).mapNotNull { col ->
                 val index = row * board.cols + col
-                val cell = board.cells[index]?.takeIf { it.visibleAt(level) } ?: return@mapNotNull null
+                val cell = board.cells[index]?.takeIf { vm.usable(it) } ?: return@mapNotNull null
                 ScanItem(scanCellId(index), cell.label) { vm.onCellSelected(board.id, index, cell) }
             }
             if (items.isNotEmpty()) add(ScanGroup(scanRowId(row), items.take(3).joinToString(", ") { it.label }, items))
@@ -614,6 +618,7 @@ private fun EditBanner(vm: AacViewModel, board: Board) {
                 Text(
                     when {
                         move != null -> "Tap where “${move.cell.label}” should go"
+                        vm.clipboard != null && !board.isScene -> "Copied “${vm.clipboard!!.label}” · tap an empty spot to paste"
                         board.isScene -> "Tap the photo to add a spot · drag spots to move"
                         else -> "Tap a button to change it"
                     },

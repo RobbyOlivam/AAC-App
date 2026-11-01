@@ -1,5 +1,7 @@
 package com.robbyolivam.aac.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -39,6 +41,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -55,6 +60,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.robbyolivam.aac.core.Board
@@ -64,6 +70,9 @@ import com.robbyolivam.aac.data.MediaFiles
 import com.robbyolivam.aac.data.Settings
 import com.robbyolivam.aac.ui.theme.OnWordColor
 import com.robbyolivam.aac.ui.theme.wordColor
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
 /**
  * Touch handling tuned for motor access: optional hold time (ignore brushes), select on
@@ -128,8 +137,74 @@ fun BoardGrid(
     onSelect: (Int, Cell?) -> Unit,
     onLongPress: (Cell?) -> Unit,
     modifier: Modifier = Modifier,
+    exploring: Boolean = false,
 ) {
-    Column(modifier.padding(2.dp)) {
+    val dwellOn = settings.dwellMs > 0 && !editMode
+    var dwellIndex by remember { mutableStateOf<Int?>(null) }
+    val dwellProgress = remember { Animatable(0f) }
+    val haptics = LocalHapticFeedback.current
+    val currentBoard by rememberUpdatedState(board)
+    val currentOnSelect by rememberUpdatedState(onSelect)
+    val hapticsOn by rememberUpdatedState(settings.haptics)
+    val level by rememberUpdatedState(settings.vocabularyLevel)
+    val currentExploring by rememberUpdatedState(exploring)
+    val pad = 2.dp
+
+    // Slide-to-select: the finger can rest and slide anywhere; whichever button it rests on for
+    // the dwell time is chosen. Lifting the finger cancels. A chosen button needs the finger to
+    // leave it before it can be chosen again.
+    val dwellModifier = if (!dwellOn) Modifier else Modifier.pointerInput(settings.dwellMs) {
+        coroutineScope {
+            val scope = this
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                var current: Int? = null
+                var chosen: Int? = null
+                var job: Job? = null
+                fun indexAt(p: Offset): Int? {
+                    val b = currentBoard
+                    val padPx = pad.toPx()
+                    val col = ((p.x - padPx) / ((size.width - 2 * padPx) / b.cols)).toInt()
+                    val row = ((p.y - padPx) / ((size.height - 2 * padPx) / b.rows)).toInt()
+                    if (col !in 0 until b.cols || row !in 0 until b.rows) return null
+                    val index = row * b.cols + col
+                    val cell = b.cells[index] ?: return null
+                    return index.takeIf { currentExploring || cell.visibleAt(level) }
+                }
+                fun track(p: Offset) {
+                    val target = indexAt(p)
+                    if (target == current) return
+                    current = target
+                    if (target != chosen) chosen = null
+                    job?.cancel()
+                    dwellIndex = target
+                    if (target == null || target == chosen) return
+                    job = scope.launch {
+                        dwellProgress.snapTo(0f)
+                        dwellProgress.animateTo(1f, tween(settings.dwellMs, easing = LinearEasing))
+                        chosen = target
+                        dwellIndex = null
+                        if (hapticsOn) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        currentOnSelect(target, currentBoard.cells[target])
+                    }
+                }
+                try {
+                    track(down.position)
+                    while (true) {
+                        val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                        if (!change.pressed) break
+                        change.consume()
+                        track(change.position)
+                    }
+                } finally {
+                    job?.cancel()
+                    dwellIndex = null
+                }
+            }
+        }
+    }
+
+    Column(modifier.then(dwellModifier).padding(pad)) {
         for (row in 0 until board.rows) {
             Row(Modifier.weight(1f).fillMaxWidth()) {
                 for (col in 0 until board.cols) {
@@ -145,7 +220,11 @@ fun BoardGrid(
                         media = media,
                         onSelect = { onSelect(index, cell) },
                         onLongPress = { onLongPress(cell) },
-                        modifier = Modifier.weight(1f).fillMaxHeight().padding(2.dp),
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        gap = 2.dp,
+                        exploring = exploring,
+                        touchEnabled = !dwellOn,
+                        dwellProgress = if (dwellIndex == index) ({ dwellProgress.value }) else null,
                     )
                 }
             }
@@ -172,9 +251,18 @@ fun CellButton(
     modifier: Modifier = Modifier,
     compact: Boolean = false,
     scanned: Boolean = false,
+    /** Space around the button; with [Settings.touchGaps] on, touches there still count. */
+    gap: Dp = 0.dp,
+    /** Show buttons hidden by level or by hand (explore mode). */
+    exploring: Boolean = false,
+    /** False while slide-to-select handles touches for the whole board. */
+    touchEnabled: Boolean = true,
+    /** Slide-to-select progress (0–1) while a finger rests on this button. */
+    dwellProgress: (() -> Float)? = null,
 ) {
     val level = settings.vocabularyLevel
-    val shown = cell != null && cell.visibleAt(level)
+    val visible = cell != null && cell.visibleAt(level)
+    val shown = visible || (cell != null && exploring)
     if (!shown && !editMode) {
         Box(modifier)
         return
@@ -215,24 +303,41 @@ fun CellButton(
     }
     val label = cell?.label ?: "Empty"
 
-    Box(
-        modifier
+    val select = if (!touchEnabled) Modifier else Modifier.aacSelectable(
+        holdTimeMs = if (editMode) 0 else settings.holdTimeMs,
+        acceptOnRelease = editMode || settings.acceptOnRelease,
+        onPressedChange = { pressed = it },
+        onSelect = {
+            if (hapticsOn) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            currentOnSelect()
+        },
+        onLongPress = {
+            if (hapticsOn) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            currentOnLongPress()
+        },
+    )
+    val gapsSelect = settings.touchGaps && gap > 0.dp
+    val progressColor = MaterialTheme.colorScheme.primary
+    Box(modifier.then(if (gapsSelect) select else Modifier).padding(gap)) { Box(
+        Modifier
+            .fillMaxSize()
             .scale(if (pressed) 0.94f else 1f)
             .clip(shape)
             .background(background)
             .border(borderWidth, borderColor, shape)
-            .alpha(if (cell != null && !shown) 0.4f else 1f)
-            .aacSelectable(
-                holdTimeMs = if (editMode) 0 else settings.holdTimeMs,
-                acceptOnRelease = editMode || settings.acceptOnRelease,
-                onPressedChange = { pressed = it },
-                onSelect = {
-                    if (hapticsOn) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    currentOnSelect()
+            .alpha(
+                when {
+                    cell == null || visible -> 1f
+                    editMode -> 0.4f
+                    else -> 0.6f // explore mode: shown, but clearly "extra"
                 },
-                onLongPress = {
-                    if (hapticsOn) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    currentOnLongPress()
+            )
+            .then(if (gapsSelect) Modifier else select)
+            .then(
+                if (dwellProgress == null) Modifier else Modifier.drawWithContent {
+                    drawContent()
+                    val h = 8.dp.toPx()
+                    drawRect(progressColor, topLeft = Offset(0f, size.height - h), size = Size(size.width * dwellProgress(), h))
                 },
             )
             .semantics {
@@ -313,7 +418,7 @@ fun CellButton(
                 if (cell.hidden) Icon(Icons.Default.VisibilityOff, null, Modifier.size(14.dp), tint = textColor)
             }
         }
-    }
+    } }
 }
 
 /** The picture for a cell (photo, library symbol or emoji), sized to whatever space it's given. */

@@ -35,6 +35,11 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
     private val cacheDir = File(context.applicationContext.cacheDir, "speech")
     private var track: AudioTrack? = null
 
+    /** 0–1, applied to speech, rendered voices and recorded button audio. */
+    @Volatile var volume: Float = 1f
+
+    private fun params() = Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, volume) }
+
     /** The rendering we're waiting on, if any; older renderings finish silently into the cache. */
     @Volatile private var awaited: String? = null
     private val renders = java.util.concurrent.ConcurrentHashMap<String, Render>()
@@ -100,7 +105,7 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
             if (age == VoiceAge.ADULT) {
                 tts.setSpeechRate(rate)
                 tts.setPitch(pitch)
-                tts.speak(text, TextToSpeech.QUEUE_FLUSH, Bundle(), "u${utteranceId++}")
+                tts.speak(text, TextToSpeech.QUEUE_FLUSH, params(), "u${utteranceId++}")
             } else {
                 speakAged(text, rate, pitch, age)
             }
@@ -131,7 +136,7 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
             // Never go silent: say it in the normal voice instead.
             tts.setSpeechRate(rate)
             tts.setPitch(pitch)
-            tts.speak(text, TextToSpeech.QUEUE_FLUSH, Bundle(), "u${utteranceId++}")
+            tts.speak(text, TextToSpeech.QUEUE_FLUSH, params(), "u${utteranceId++}")
         }
         trimCache()
     }
@@ -158,6 +163,7 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
                 .build()
                 .apply {
                     write(pcm.data, 0, pcm.data.size)
+                    setVolume(volume)
                     play()
                 }
         }.onFailure { Log.e(TAG, "Playback failed", it) }.getOrNull() ?: return
@@ -206,6 +212,7 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
         player = MediaPlayer().apply {
             setAudioAttributes(attributes)
             setDataSource(file.absolutePath)
+            setVolume(volume, volume)
             setOnCompletionListener { it.release(); if (player === it) player = null }
             prepare()
             start()

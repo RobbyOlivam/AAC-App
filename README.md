@@ -62,6 +62,17 @@ The screen tests drive the real app on the JVM (Robolectric) on a Pixel-sized an
 | Vocabulary | ~650 starter words. A 7th core column holds 8 new folders: Body, School, Animals, Activities, Little words, More actions, Health, Weather. Existing boards are upgraded without moving any button |
 | Voice age | **Adult / Teen / Kid** for any installed voice (Settings → Voice). The voice is rendered and played back faster with the engine slowed to match, which raises pitch and vocal-tract size without changing speed. Rendered words are cached so repeats are instant |
 
+## Batch A additions (0.4.0)
+
+| Area | Features |
+|---|---|
+| Voice | **Volume** slider (on top of the phone's media volume), applied to speech and recorded button audio |
+| Touch | **Slide to select**: keep a finger on the board and slide; resting on a button for the set time chooses it (lifting cancels). **Spaces between buttons count as touches** (no dead zones) |
+| Editing | **Copy / paste buttons** (Copy in the button editor, then tap an empty spot) and **Duplicate page** (Page options) |
+| Photos | New photos go through a **crop** step (drag and pinch to frame; or use the whole photo) |
+| Vocabulary | **Explore mode** (Settings → Show Explore button): shows words hidden by level or by hand, faded, until turned off. Nothing moves |
+| Keyboard | **Abbreviations** (Settings → Voice → Abbreviations): "hru" + space becomes "how are you"; also offered as a prediction |
+
 Symbol assets are rebuilt with `scripts/build-symbols.py` (see the script header).
 
 ## Project layout

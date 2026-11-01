@@ -373,3 +373,30 @@ class WavTest {
         assertTrue(VoiceAge.KID.pitch > VoiceAge.TEEN.pitch && VoiceAge.TEEN.pitch > VoiceAge.ADULT.pitch)
     }
 }
+
+class BatchATest {
+    @Test
+    fun abbreviationsExpandIgnoringCase() {
+        val v = DefaultVocabulary.create().copy(abbreviations = mapOf("hru" to "how are you"))
+        assertEquals("how are you", v.expandAbbreviation("HRU"))
+        assertNull(v.expandAbbreviation("hello"))
+        assertNull(v.expandAbbreviation(" "))
+    }
+
+    @Test
+    fun duplicatePageCopiesButtonsWithNewIds() {
+        val v = DefaultVocabulary.create()
+        var n = 0
+        val copy = v.duplicateBoard(v.homeBoardId, "home-copy", "Core copy") { "new-${n++}" }
+        val original = copy.board(v.homeBoardId)!!
+        val dup = copy.board("home-copy")!!
+        assertEquals("Core copy", dup.name)
+        assertEquals(original.rows to original.cols, dup.rows to dup.cols)
+        // Same words in the same places, different ids.
+        assertEquals(original.cells.map { it?.label }, dup.cells.map { it?.label })
+        assertEquals(original.cells.map { it?.linkTo }, dup.cells.map { it?.linkTo })
+        val ids = original.cells.mapNotNull { it?.id }.toSet()
+        assertTrue(dup.cells.filterNotNull().none { it.id in ids })
+        assertEquals(v, copy.copy(boards = copy.boards.filter { it.id != "home-copy" }))
+    }
+}

@@ -29,8 +29,12 @@ class MediaFiles(private val context: Context, private val store: VocabularyStor
     }
 
     /** Saves a picked image; returns its relative path. */
-    fun importImage(uri: Uri, maxSize: Int = MAX_SIZE): String? = runCatching {
-        val bitmap = if (Build.VERSION.SDK_INT >= 28) {
+    fun importImage(uri: Uri, maxSize: Int = MAX_SIZE): String? =
+        decode(uri, maxSize)?.let { saveBitmap(it, maxSize) }
+
+    /** Loads a picked image (scaled down to [maxSize]) without saving it, e.g. for cropping first. */
+    fun decode(uri: Uri, maxSize: Int): Bitmap? = runCatching {
+        if (Build.VERSION.SDK_INT >= 28) {
             ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri)) { decoder, info, _ ->
                 val size = info.size
                 val scale = maxSize.toFloat() / maxOf(size.width, size.height)
@@ -38,9 +42,8 @@ class MediaFiles(private val context: Context, private val store: VocabularyStor
                 decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
             }
         } else {
-            context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) } ?: return@runCatching null
+            context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
         }
-        saveBitmap(bitmap, maxSize)
     }.getOrNull()
 
     fun saveBitmap(source: Bitmap, maxSize: Int = MAX_SIZE): String {

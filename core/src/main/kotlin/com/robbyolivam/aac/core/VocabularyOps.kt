@@ -112,6 +112,28 @@ fun Vocabulary.applyPronunciations(text: String): String {
     return Regex("[\\p{L}\\p{N}']+").replace(text) { m -> lookup[m.value.lowercase()] ?: m.value }
 }
 
+/** The expansion for a typed shortcut (case-insensitive), or null if [word] isn't one. */
+fun Vocabulary.expandAbbreviation(word: String): String? {
+    val key = word.trim().lowercase()
+    if (key.isEmpty()) return null
+    return abbreviations.entries.firstOrNull { it.key.lowercase() == key }?.value
+}
+
+/**
+ * Copies a page (grid or photo scene) under [newId]. Buttons get fresh ids from [newCellId];
+ * folder buttons still open the same pages as the original.
+ */
+fun Vocabulary.duplicateBoard(boardId: String, newId: String, name: String, newCellId: () -> String): Vocabulary {
+    val original = board(boardId) ?: return this
+    val copy = original.copy(
+        id = newId,
+        name = name,
+        cells = original.cells.map { it?.copy(id = newCellId()) },
+        scene = original.scene?.let { s -> s.copy(hotspots = s.hotspots.map { h -> h.copy(cell = h.cell.copy(id = newCellId())) }) },
+    )
+    return addBoard(copy)
+}
+
 fun Vocabulary.resizeBoard(boardId: String, rows: Int, cols: Int): Vocabulary =
     updateBoard(boardId) { it.resized(rows, cols) }
 

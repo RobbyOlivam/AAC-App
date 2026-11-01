@@ -24,6 +24,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -234,6 +235,12 @@ fun BoardOptionsDialog(vm: AacViewModel, board: com.robbyolivam.aac.core.Board, 
                         Text("$lost button(s) are outside the new size and will be removed (Undo brings them back).", color = MaterialTheme.colorScheme.error)
                     }
                 }
+                OutlinedButton(onClick = { vm.duplicateBoard(board.id); onDismiss() }) { Text("Duplicate page") }
+                Text(
+                    "Makes a copy to change freely; the original stays as it is. Link the copy from a folder button to use it.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.outline,
+                )
             }
         },
         confirmButton = {
