@@ -48,13 +48,20 @@ import com.robbyolivam.aac.speech.AudioOutput
 import java.util.UUID
 
 /** A word in the message bar, with the picture it came from. */
-data class MessageToken(val text: String, val type: WordType?, val symbol: Symbol?, val id: Long = nextTokenId++)
+/** A word in the message. [base] is the button's word before any form was chosen ("want" for "wanted"). */
+data class MessageToken(
+    val text: String,
+    val type: WordType?,
+    val symbol: Symbol?,
+    val id: Long = nextTokenId++,
+    val base: String? = null,
+)
 
 private var nextTokenId = 0L
 
 enum class Panel { BOARD, KEYBOARD }
 
-enum class Screen { MAIN, SETTINGS, REPORT }
+enum class Screen { MAIN, SETTINGS, REPORT, HELP }
 
 sealed interface EditTarget {
     data class Grid(val boardId: String, val index: Int) : EditTarget
@@ -244,7 +251,7 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
                 speakCell(cell)
             }
             CellAction.WORD -> {
-                addToken(MessageToken(cell.text, cell.type, cell.symbol))
+                addToken(MessageToken(cell.text, cell.type, cell.symbol, base = cell.text))
                 logWord(cell.text, boardId, index)
                 if (s.speakOnSelect) speakCell(cell)
                 afterWord(boardId)
@@ -254,10 +261,50 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
 
     fun selectForm(cell: Cell, form: String) {
         formsFor = null
-        addToken(MessageToken(form, cell.type, cell.symbol))
+        if (formsReplaceLast) {
+            // Forms pressed after a word: change that word ("want" → "wanted") in place.
+            formsReplaceLast = false
+            val last = message.lastOrNull()
+            if (last != null) message[message.lastIndex] = last.copy(text = form, base = cell.text)
+            if (s.speakOnSelect) speak(form)
+            return
+        }
+        addToken(MessageToken(form, cell.type, cell.symbol, base = cell.text))
         logWord(form, currentBoardId, null)
         if (s.speakOnSelect) speak(form)
         afterWord(currentBoardId)
+    }
+
+    /** True while the forms picker is changing the last word of the message (not adding one). */
+    private var formsReplaceLast = false
+
+    /**
+     * The Forms button. With a word in the message that has other forms, shows them for that
+     * word right away; otherwise turns on "next word" mode, where the next word tapped shows its
+     * forms (the message bar says so).
+     */
+    fun formsPressed() {
+        if (formsMode) {
+            formsMode = false
+            return
+        }
+        commitTyping()
+        val last = message.lastOrNull()
+        if (last != null) {
+            val word = last.base ?: last.text
+            val type = last.type ?: wordIndex()[word.lowercase()]?.type
+            if (type != null && EnglishMorphology.hasForms(word, type)) {
+                formsReplaceLast = true
+                formsFor = Cell(id = "message-word", label = word, symbol = last.symbol ?: Symbol(), type = type)
+                return
+            }
+        }
+        formsMode = true
+    }
+
+    fun dismissForms() {
+        formsFor = null
+        formsReplaceLast = false
     }
 
     private fun afterWord(boardId: String) {
@@ -512,6 +559,34 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
     fun cancelMove() {
         moveSource = null
     }
+
+    /** The guided tour's current step, or null when it isn't running. */
+    var tutorialStep by mutableStateOf<Int?>(null)
+        private set
+
+    /** Starts the tour on the main screen, from the Core page. */
+    fun startTutorial() {
+        exitEditMode()
+        screen = Screen.MAIN
+        goHome()
+        tutorialStep = 0
+        settingsStore.update { it.copy(tutorialOffered = true) }
+    }
+
+    fun tutorialNext() {
+        val step = tutorialStep ?: return
+        tutorialStep = if (step >= tutorialSteps.lastIndex) null else step + 1
+    }
+
+    fun tutorialBack() {
+        tutorialStep = tutorialStep?.let { (it - 1).coerceAtLeast(0) }
+    }
+
+    fun endTutorial() {
+        tutorialStep = null
+    }
+
+    fun declineTutorial() = settingsStore.update { it.copy(tutorialOffered = true) }
 
     /** Whether the "Add a word" wizard is open. */
     var addingWord by mutableStateOf(false)

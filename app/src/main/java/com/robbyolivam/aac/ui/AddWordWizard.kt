@@ -89,7 +89,11 @@ fun AddWordWizard(vm: AacViewModel, onDone: () -> Unit) {
     var symbolChosen by remember { mutableStateOf(false) }
 
     val trimmed = word.trim()
-    val matches = remember(trimmed) { if (trimmed.length < 2) emptyList() else vm.symbols.search(trimmed, limit = 16) }
+    // Pictures that fit the chosen folder come first (and the guess is redone if the folder changes).
+    val matches = remember(trimmed, boardId) {
+        if (trimmed.length < 2) emptyList()
+        else vm.symbols.search(trimmed, limit = 16, context = WordWizard.contextWords(boardId?.let(vocabulary::board)))
+    }
     val existing = remember(trimmed, vocabulary) { if (trimmed.length < 2) null else vocabulary.findWord(trimmed) }
     val folders = remember(vocabulary) {
         vocabulary.home.cells.filterNotNull()

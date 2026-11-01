@@ -26,6 +26,13 @@ object WordWizard {
         "things" to listOf("clothes", "accessories", "furniture", "kitchen", "tools", "electrical", "toys", "items", "transport", "item"),
     )
 
+    /** Topic words for a folder (e.g. Food → food, meals, fruit…), to prefer pictures that fit it. */
+    fun contextWords(board: Board?): List<String> {
+        if (board == null) return emptyList()
+        val hints = folderHints.firstOrNull { it.first == board.id }?.second.orEmpty()
+        return (hints + board.name.lowercase().split(' ')).filter { it.length > 2 }.distinct()
+    }
+
     /** Guesses the kind of word from the symbol library's [grammar] and category [tags]. */
     fun guessType(word: String, grammar: String?, tags: String?): WordType {
         val t = tags.orEmpty().lowercase()

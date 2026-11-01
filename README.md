@@ -97,6 +97,16 @@ The screen tests drive the real app on the JVM (Robolectric) on a Pixel-sized an
 | Expand my words | Settings → Board → Expand my words (on-device AI). Gemini Nano on the phone (Android AICore; recent Pixels such as Pixel 9+) turns a short message ("want juice") into a sentence ("I want some juice, please."), shown as the ✨ suggestion and used only if tapped. Answers must keep every chosen word and can't add new ideas. Nothing leaves the phone (the app has no internet permission). On phones without it, the setting says so and the grammar helper keeps working |
 | Add a word | In edit mode, the **Add a word** button: type a word and the wizard picks a symbol, the kind of word (its color), a folder and the first empty spot, flags words already on a board, and shows the word forms. Everything can be changed before adding |
 
+## 0.8.0 additions
+
+| Area | Changes |
+|---|---|
+| How to use | Settings → **How to use**: a guided tour of the main screen (offered the first time the app opens) and the full instruction manual (`app/src/main/assets/help/manual.md`) |
+| Settings | Big **Edit boards** and **How to use** cards at the top |
+| Pictures | Starter pictures checked against their folder: "tablet" is now a tablet computer, and nails, bottom, chicken, orange (colour), fly, answer, park and letters fixed. Existing boards are updated unless the picture was changed by hand. Picture search prefers symbols that fit the folder |
+| Forms | Tapping **Forms** after a word changes that word (want → wanted); with an empty message it says what to do next |
+| Crop | A zoomed photo stays inside the crop square |
+
 Symbol assets are rebuilt with `scripts/build-symbols.py` (see the script header).
 
 ## Project layout

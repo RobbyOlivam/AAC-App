@@ -88,6 +88,8 @@ data class Settings(
     val usageLogging: Boolean = false,
     /** Privacy pause: the user can stop logging any time from the main screen. */
     val usagePaused: Boolean = false,
+    /** Whether the first-run "take the tour?" offer has been shown. */
+    val tutorialOffered: Boolean = false,
     // Device
     val settingsLock: SettingsLock = SettingsLock.HOLD,
     val pin: String = "",

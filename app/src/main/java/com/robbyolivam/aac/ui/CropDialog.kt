@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
@@ -98,6 +99,8 @@ fun CropDialog(bitmap: Bitmap, onDone: (Bitmap) -> Unit, onCancel: () -> Unit) {
                     Canvas(
                         Modifier
                             .size(side)
+                            // Keep a zoomed-in photo inside the square, never over the buttons.
+                            .clipToBounds()
                             .border(3.dp, MaterialTheme.colorScheme.primary)
                             .pointerInput(bitmap) {
                                 detectTransformGestures { _, pan, gestureZoom, _ ->

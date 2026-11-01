@@ -150,6 +150,6 @@ data class Vocabulary(
     val home: Board get() = board(homeBoardId) ?: boards.first()
 
     companion object {
-        const val CURRENT_VERSION = 3
+        const val CURRENT_VERSION = 4
     }
 }

@@ -8,9 +8,15 @@ to it. Inputs (not committed): a Mulberry checkout and the OpenMoji npm package.
   python3 scripts/build-symbols.py mulberry package <svgo-optimized-dir-or-empty>
 
 Outputs:
-  app/src/main/assets/symbols/{m,o}/*.svg      symbols (m = Mulberry id, o = OpenMoji hexcode)
+  app/src/main/assets/symbols/{m,o,c}/*.svg    symbols (m = Mulberry id, o = OpenMoji hexcode,
+                                                c = this app's own symbols from scripts/custom-symbols)
   app/src/main/assets/symbols/index.tsv        set, id, name, grammar, tags  (for search)
-  core/.../DefaultSymbols.kt                    starter cell id -> library id
+  core/.../DefaultSymbols.kt                    starter cell id -> library id, plus the symbols
+                                                each cell used before (so upgrades can fix them)
+
+Pictures must fit the folder a word is in ("tablet" in Things is a computer, not medicine).
+CELL_OVERRIDES fixes known cases; the run prints a warning for any other match whose
+Mulberry category doesn't fit its folder, so new words get checked too.
 """
 import csv, json, os, re, shutil, sys
 
@@ -25,6 +31,7 @@ def clean_name(raw):
 # ---- Library index ------------------------------------------------------------------------
 entries = []
 mul_by_name = {}
+mul_category = {}
 for r in csv.DictReader(open(os.path.join(mulberry, "scripts/data/symbol-info-en.csv"), encoding="utf-8")):
     if r["rated"].strip() not in ("0", ""):
         continue  # skip symbols Mulberry rates as adult content
@@ -33,6 +40,7 @@ for r in csv.DictReader(open(os.path.join(mulberry, "scripts/data/symbol-info-en
         continue
     entries.append(("m", r["symbol-id"], clean_name(r["symbol"]), r["grammar"], (r["tags"] + " " + r["category"]).strip(), src))
     mul_by_name[r["symbol"].lower()] = r["symbol-id"]
+    mul_category[r["symbol-id"]] = r["category"]
 
 om = json.load(open(os.path.join(openmoji, "data/openmoji.json"), encoding="utf-8"))
 om_by_emoji = {}
@@ -47,7 +55,13 @@ for e in om:
     om_by_emoji[e["emoji"]] = e["hexcode"]
     om_by_emoji[e["emoji"].replace("️", "")] = e["hexcode"]
 
-for d in ("m", "o"):
+# This app's own symbols (where neither library has the right picture).
+custom = os.path.join(ROOT, "scripts/custom-symbols")
+for line in open(os.path.join(custom, "index.tsv"), encoding="utf-8"):
+    s, sid, name, grammar, tags = line.rstrip("\n").split("\t")
+    entries.append((s, sid, name, grammar, tags, os.path.join(custom, sid + ".svg")))
+
+for d in ("m", "o", "c"):
     shutil.rmtree(os.path.join(assets, d), ignore_errors=True)
     os.makedirs(os.path.join(assets, d))
 with open(os.path.join(assets, "index.tsv"), "w", encoding="utf-8") as f:
@@ -65,6 +79,34 @@ vocab_src = open(os.path.join(ROOT, "core/src/main/kotlin/com/robbyolivam/aac/co
 OVERRIDES = {
     "all done": "finish", "see": "look_,_to", "big": "large", "toy car": "car_toy",
     "hot dog": "hot_dog", "ice cream": "ice_cream",
+}
+
+# Per-cell picks where the word means something else in its folder: library id, or "emoji"
+# to use the OpenMoji version of the cell's own emoji.
+CELL_OVERRIDES = {
+    "things.tablet": "c:tablet",          # Mulberry "tablets" are pills
+    "body.nails": "m:1112",               # fingernails, not a hardware nail
+    "body.bottom": "m:227",               # the body part, not the position
+    "animals.chicken": "m:463",           # a live chicken, not cooked chicken
+    "describe.orange": "emoji",           # the colour (🟠), not the fruit
+    "more-actions.fly": "emoji",          # ✈️, not the insect
+    "more-actions.answer": "emoji",       # 💬, not a maths answer
+    "places.park": "emoji",               # 🏞️, not "to park a car"
+    "school.letters": "emoji",            # 🔤, not an envelope
+}
+
+# Mulberry categories that clearly belong to one topic. A match from one of these in a folder
+# that isn't about it gets a warning (and should get an entry in CELL_OVERRIDES).
+TOPIC_FOLDERS = {
+    "Healthcare": {"health", "body", "things"}, "Food": {"food", "feelings", "describe", "things", "actions"},
+    "Drink": {"food", "core"}, "Animal": {"animals", "people"}, "Tools": set(), "Number": {"school"},
+    "Celebration": {"activities"}, "Money": set(),
+}
+
+# Matches flagged by the topic check that were looked at and fit their folder.
+REVIEWED = {
+    "core.folder-food", "more-actions.hear", "more-actions.taste", "places.work",
+    "school.scissors", "weather.water",
 }
 
 def slug(s):
@@ -102,17 +144,47 @@ core_block = vocab_src[vocab_src.index("private val coreColumns"):vocab_src.inde
 for w in re.finditer(r'e\("([^"]+)", "([^"]+)", ([A-Z]+)', core_block):
     mapping[f"core.{slug(w.group(1))}"] = (w.group(1), w.group(3), w.group(2))
 
+def openmoji_for(emoji):
+    hexcode = om_by_emoji.get(emoji, om_by_emoji.get(emoji.replace("️", "")))
+    return "o:" + hexcode if hexcode else None
+
 result, misses = {}, []
 for cid, (label, wtype, emoji) in sorted(mapping.items()):
-    mid = mulberry_for(label, wtype)
-    if mid:
-        result[cid] = "m:" + mid
-    elif emoji in om_by_emoji or emoji.replace("️", "") in om_by_emoji:
-        result[cid] = "o:" + om_by_emoji.get(emoji, om_by_emoji.get(emoji.replace("️", "")))
+    override = CELL_OVERRIDES.get(cid)
+    if override == "emoji":
+        pick = openmoji_for(emoji)
+    elif override:
+        pick = override
+    else:
+        mid = mulberry_for(label, wtype)
+        pick = "m:" + mid if mid else openmoji_for(emoji)
+        if mid:
+            topic = mul_category.get(mid, "").split(" ")[0]
+            folder = cid.split(".")[0]
+            if topic in TOPIC_FOLDERS and folder not in TOPIC_FOLDERS[topic] and cid not in REVIEWED:
+                print(f"check: {cid} -> m:{mid} is a {mul_category[mid]} symbol")
+    if pick:
+        result[cid] = pick
     else:
         misses.append(cid)
 
+# Remember what each cell used before, so the app can replace a picture the person never changed.
 out = os.path.join(ROOT, "core/src/main/kotlin/com/robbyolivam/aac/core/DefaultSymbols.kt")
+previous, replaced = {}, {}
+if os.path.exists(out):
+    src = open(out, encoding="utf-8").read()
+    head, _, tail = src.partition("internal val replacedDefaultSymbols")
+    previous = dict(re.findall(r'"([^"]+)" to "([^"]+)"', head))
+    for cid, olds in re.findall(r'"([^"]+)" to setOf\(([^)]*)\)', tail):
+        replaced[cid] = set(re.findall(r'"([^"]+)"', olds))
+for cid, lid in result.items():
+    if cid in previous and previous[cid] != lid:
+        replaced.setdefault(cid, set()).add(previous[cid])
+for cid in list(replaced):
+    replaced[cid].discard(result.get(cid))
+    if not replaced[cid]:
+        del replaced[cid]
+
 with open(out, "w", encoding="utf-8") as f:
     f.write("package com.robbyolivam.aac.core\n\n")
     f.write("// Generated by scripts/build-symbols.py. Starter cell id -> bundled symbol\n")
@@ -120,6 +192,11 @@ with open(out, "w", encoding="utf-8") as f:
     f.write("internal val defaultLibrarySymbols: Map<String, String> = mapOf(\n")
     for cid, lid in sorted(result.items()):
         f.write(f'    "{cid}" to "{lid}",\n')
+    f.write(")\n\n")
+    f.write("// Symbols starter cells used in earlier versions, replaced because they didn't fit.\n")
+    f.write("internal val replacedDefaultSymbols: Map<String, Set<String>> = mapOf(\n")
+    for cid, olds in sorted(replaced.items()):
+        f.write(f'    "{cid}" to setOf(' + ", ".join(f'"{o}"' for o in sorted(olds)) + "),\n")
     f.write(")\n")
 m_count = sum(1 for v in result.values() if v.startswith("m:"))
 print(f"library: {len(entries)} symbols; starter cells: {len(mapping)}, Mulberry {m_count}, OpenMoji {len(result) - m_count}, unmapped {len(misses)}")

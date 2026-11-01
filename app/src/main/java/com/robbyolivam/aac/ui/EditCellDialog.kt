@@ -65,6 +65,7 @@ import com.robbyolivam.aac.core.Cell
 import com.robbyolivam.aac.core.CellAction
 import com.robbyolivam.aac.core.Symbol
 import com.robbyolivam.aac.core.WordType
+import com.robbyolivam.aac.core.WordWizard
 import com.robbyolivam.aac.ui.theme.wordColor
 
 private val typeLabels = listOf(
@@ -254,7 +255,10 @@ fun EditCellDialog(vm: AacViewModel, target: EditTarget) {
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    val results = remember(symbolQuery) { vm.symbols.search(symbolQuery, limit = 40) }
+                    val topic = remember(target) {
+                        WordWizard.contextWords((target as? EditTarget.Grid)?.let { vm.vocabulary.value.board(it.boardId) })
+                    }
+                    val results = remember(symbolQuery) { vm.symbols.search(symbolQuery, limit = 40, context = topic) }
                     if (results.isEmpty() && symbolQuery.isNotBlank()) {
                         Text("No symbol for “$symbolQuery”. Try another word, an emoji, or a photo.", fontSize = 13.sp)
                     }
