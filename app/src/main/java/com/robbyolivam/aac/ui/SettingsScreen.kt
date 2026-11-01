@@ -195,6 +195,24 @@ fun SettingsScreen(vm: AacViewModel) {
             OutlinedButton(onClick = { vm.speak("Hello! This is how I sound.") }) { Text("Test voice") }
             ToggleSetting("Speak each word when tapped", settings.speakOnSelect) { v -> update { it.copy(speakOnSelect = v) } }
             ToggleSetting("Speak letters and words while typing", settings.speakLettersWhileTyping) { v -> update { it.copy(speakLettersWhileTyping = v) } }
+            ToggleSetting("Show tone buttons (question, excited, whisper…)", settings.showToneButtons) { v -> update { it.copy(showToneButtons = v) } }
+            Text(
+                "A row under the message: tap a tone to say the message that way. Tones change speed, pitch and loudness; " +
+                    "the phone's voices can't truly whisper or sound sarcastic, so these are approximations.",
+                fontSize = 13.sp, color = MaterialTheme.colorScheme.outline,
+            )
+            ToggleSetting("Private earbud for previews", settings.earbudPreview) { v -> update { it.copy(earbudPreview = v) } }
+            Text(
+                "With a headset or earbud connected, scanning cues, typed letters and previews play only in the earbud, " +
+                    "and real speech always comes out of the phone's speaker. Without one, everything plays out loud.",
+                fontSize = 13.sp, color = MaterialTheme.colorScheme.outline,
+            )
+            ToggleSetting("Preview on first tap (tap again to use)", settings.previewTaps) { v -> update { it.copy(previewTaps = v) } }
+            Text(
+                "The first tap on a board button says it (privately with the earbud option); a second tap on the same button uses it. " +
+                    "The quick strip (yes, no, help…) always works on the first tap.",
+                fontSize = 13.sp, color = MaterialTheme.colorScheme.outline,
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { showPronunciations = true }) { Text("Pronunciations…") }
                 OutlinedButton(onClick = { showAbbreviations = true }) { Text("Abbreviations…") }
@@ -291,6 +309,11 @@ fun SettingsScreen(vm: AacViewModel) {
                     }
                 }
                 ToggleSetting("Speak each row and button as it lights up", settings.scanSpeakItems) { v -> update { it.copy(scanSpeakItems = v) } }
+                Text(
+                    "Auditory scanning: turn this on with “Private earbud for previews” (Voice) so only the person hears the options, " +
+                        "and only their choice is said out loud.",
+                    fontSize = 13.sp, color = MaterialTheme.colorScheme.outline,
+                )
                 ToggleSetting("Tap anywhere on screen as a switch", settings.scanTouchAnywhere) { v -> update { it.copy(scanTouchAnywhere = v) } }
             }
 

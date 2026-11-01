@@ -460,3 +460,19 @@ class UsageTest {
         assertTrue(csv.startsWith("time_utc,kind,source,text"))
     }
 }
+
+class ToneTest {
+    @Test
+    fun toneSetsTheEnding() {
+        assertEquals("you want juice?", Tone.QUESTION.apply("you want juice."))
+        assertEquals("I did it!", Tone.EXCITED.apply(" I did it "))
+        assertEquals("", Tone.LOUD.apply("  "))
+    }
+
+    @Test
+    fun loudIsFullVolumeAndWhisperIsQuiet() {
+        assertEquals(1f, Tone.LOUD.volume(0.3f))
+        assertTrue(Tone.WHISPER.volume(1f) < 0.5f)
+        assertEquals(0.8f, Tone.QUESTION.volume(0.8f))
+    }
+}

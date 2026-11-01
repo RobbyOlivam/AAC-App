@@ -81,6 +81,15 @@ The screen tests drive the real app on the JVM (Robolectric) on a Pixel-sized an
 | Privacy pause | While logging is on, a red dot next to the suggestions shows it. The person can tap it to pause (and again to resume) without opening settings |
 | Usage report | Settings → Usage report: words used, different words, active days, messages spoken, average words per message (MLU), core-word share, words per day, new words, most-used words, and a Core-page heat map. 7 days / 30 days / everything. **Export CSV** and **Clear log** |
 
+## Batch C additions (0.6.0)
+
+| Area | Features |
+|---|---|
+| Tone buttons | Settings → Voice → Show tone buttons: a row under the message (Question, Excited, Whisper, Loud, Sad, Sarcastic). One tap says the message in that tone, using speed, pitch, loudness and end punctuation (approximations: the phone's voices can't truly whisper) |
+| Private earbud | With a headset or earbud connected, scanning cues, typed-letter echoes and previews play only in the earbud, and real speech is sent to the phone's speaker. Without one, everything plays out loud |
+| Preview on first tap | The first tap on a board button says it (privately with the earbud option); a second tap on the same button uses it. The quick strip always works on the first tap |
+| Auditory scanning | "Speak each row and button as it lights up" plus the private earbud: only the person hears the options, and only their choice is said out loud |
+
 Symbol assets are rebuilt with `scripts/build-symbols.py` (see the script header).
 
 ## Project layout

@@ -80,6 +80,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.robbyolivam.aac.core.Board
+import com.robbyolivam.aac.core.Tone
 import com.robbyolivam.aac.core.Cell
 import com.robbyolivam.aac.core.Symbol
 import com.robbyolivam.aac.core.Vocabulary
@@ -170,6 +171,7 @@ fun CommunicationScreen(vm: AacViewModel) {
                         MessageBar(vm, isScanned, Modifier.fillMaxWidth().height(76.dp))
                         PredictionRow(vm, predictions, isScanned, Modifier.fillMaxWidth().height(48.dp))
                     }
+                    if (settings.showToneButtons && !vm.editMode) ToneRow(vm, isScanned, Modifier.fillMaxWidth().height(44.dp))
                     if (guide != null) GuideBanner(guide.cell.label, onCancel = vm::cancelGuide)
                     if (showBackBar) BackBar(vm, board, vocabulary, isScanned, compact = compactHeight)
                     boardArea(Modifier.weight(1f).fillMaxWidth())
@@ -183,6 +185,7 @@ fun CommunicationScreen(vm: AacViewModel) {
                 if (vm.editMode) EditBanner(vm, board)
                 MessageBar(vm, isScanned, Modifier.fillMaxWidth().height(76.dp))
                 PredictionRow(vm, predictions, isScanned, Modifier.fillMaxWidth().height(48.dp))
+                if (settings.showToneButtons && !vm.editMode) ToneRow(vm, isScanned, Modifier.fillMaxWidth().height(44.dp))
                 if (guide != null) GuideBanner(guide.cell.label, onCancel = vm::cancelGuide)
                 if (showBackBar) BackBar(vm, board, vocabulary, isScanned, compact = false)
                 boardArea(Modifier.weight(1f).fillMaxWidth())
@@ -314,6 +317,9 @@ private fun buildScanGroups(
         ScanItem("delete", "delete word") { vm.backspace() },
         ScanItem("clear", "clear") { vm.clearMessage() },
     )))
+    if (settings.showToneButtons) {
+        add(ScanGroup("tones", "tones", Tone.entries.map { t -> ScanItem("tone-${t.name}", t.label) { vm.speakMessage(t) } }))
+    }
     add(ScanGroup("nav", "menu", nav.map { ScanItem(it.id, it.label, it.onClick) }))
 }
 
@@ -446,6 +452,31 @@ private fun PredictionRow(vm: AacViewModel, predictions: Predictions, isScanned:
                 context.startActivity(Intent.createChooser(send, "Share message"))
             }
         }) { Icon(Icons.Default.Share, "Share message") }
+    }
+}
+
+/** Say the whole message as a question, excited, whispered… One tap, no mode to switch off. */
+@Composable
+private fun ToneRow(vm: AacViewModel, isScanned: (String, String) -> Boolean, modifier: Modifier) {
+    Row(modifier.padding(horizontal = 4.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Tone.entries.forEach { tone ->
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .scanBorder(isScanned("tones", "tone-${tone.name}"), RoundedCornerShape(10.dp))
+                    .clickable(role = Role.Button, onClickLabel = "Say it ${tone.label.lowercase()}") { vm.speakMessage(tone) }
+                    .semantics { contentDescription = "Say message: ${tone.label}" },
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(tone.emoji, fontSize = 13.sp, lineHeight = 14.sp)
+                    Text(tone.label, fontSize = 10.sp, lineHeight = 11.sp, maxLines = 1, softWrap = false, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
     }
 }
 
