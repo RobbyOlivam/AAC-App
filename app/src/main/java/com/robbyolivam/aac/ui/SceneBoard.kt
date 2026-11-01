@@ -63,6 +63,7 @@ fun SceneBoard(
     onBackgroundTap: (Float, Float) -> Unit,
     onMoveHotspot: (Int, Float, Float) -> Unit,
     modifier: Modifier = Modifier,
+    exploring: Boolean = false,
 ) {
     val scene = board.scene ?: return
     val image = remember(scene.imagePath) { media.load(scene.imagePath) }
@@ -88,7 +89,7 @@ fun SceneBoard(
                 Text("Photo missing", color = Color.White, modifier = Modifier.align(Alignment.Center))
             }
             scene.hotspots.forEachIndexed { index, hotspot ->
-                if (!hotspot.cell.visibleAt(settings.vocabularyLevel) && !editMode) return@forEachIndexed
+                if (!hotspot.cell.visibleAt(settings.vocabularyLevel) && !editMode && !exploring) return@forEachIndexed
                 HotspotView(
                     hotspot = hotspot,
                     areaWidth = w,

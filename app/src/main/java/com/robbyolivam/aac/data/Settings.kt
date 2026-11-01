@@ -34,6 +34,8 @@ data class Settings(
     // Voice
     val speechRate: Float = 1.0f,
     val pitch: Float = 1.0f,
+    /** 0–1, on top of the phone's media volume. */
+    val volume: Float = 1.0f,
     val voiceName: String? = null,
     /** Makes any voice sound like a teen or a kid. */
     val voiceAge: VoiceAge = VoiceAge.ADULT,
@@ -43,6 +45,10 @@ data class Settings(
     val holdTimeMs: Int = 0,
     val acceptOnRelease: Boolean = true,
     val debounceMs: Int = 0,
+    /** Slide a finger over the board; a button is chosen after resting on it this long. 0 = off. */
+    val dwellMs: Int = 0,
+    /** The small gaps between buttons count as touches on the nearest button. */
+    val touchGaps: Boolean = false,
     val haptics: Boolean = true,
     // Board
     val returnHomeAfterFolderWord: Boolean = true,
@@ -54,6 +60,8 @@ data class Settings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     /** 1–4; words above this level are hidden in place. */
     val vocabularyLevel: Int = 4,
+    /** Adds an Explore button to the menu that shows hidden words for a while. */
+    val showExploreButton: Boolean = false,
     /** Black buttons with colored borders, for low vision / cortical visual impairment. */
     val highContrast: Boolean = false,
     val symbolStyle: SymbolStyle = SymbolStyle.LIBRARY,

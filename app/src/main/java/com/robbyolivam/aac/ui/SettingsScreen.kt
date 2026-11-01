@@ -73,6 +73,7 @@ fun SettingsScreen(vm: AacViewModel) {
     val scope = rememberCoroutineScope()
     var showSnapshots by remember { mutableStateOf(false) }
     var showPronunciations by remember { mutableStateOf(false) }
+    var showAbbreviations by remember { mutableStateOf(false) }
     var settingPin by remember { mutableStateOf(false) }
     var confirmReset by remember { mutableStateOf(false) }
 
@@ -161,6 +162,11 @@ fun SettingsScreen(vm: AacViewModel) {
             }
             SliderSetting("Speed", settings.speechRate, 0.5f..2.0f, "%.1f×".format(settings.speechRate)) { v -> update { it.copy(speechRate = v) } }
             SliderSetting("Pitch", settings.pitch, 0.5f..2.0f, "%.1f".format(settings.pitch)) { v -> update { it.copy(pitch = v) } }
+            SliderSetting("Volume", settings.volume, 0.1f..1.0f, "%.0f%%".format(settings.volume * 100)) { v -> update { it.copy(volume = v) } }
+            Text(
+                "On top of the phone's media volume. If speech is quiet at 100%, turn up the phone's volume.",
+                style = MaterialTheme.typography.bodySmall,
+            )
             if (voices.isNotEmpty()) {
                 Text("Voice", fontWeight = FontWeight.SemiBold)
                 ChipFlow {
@@ -189,7 +195,10 @@ fun SettingsScreen(vm: AacViewModel) {
             OutlinedButton(onClick = { vm.speak("Hello! This is how I sound.") }) { Text("Test voice") }
             ToggleSetting("Speak each word when tapped", settings.speakOnSelect) { v -> update { it.copy(speakOnSelect = v) } }
             ToggleSetting("Speak letters and words while typing", settings.speakLettersWhileTyping) { v -> update { it.copy(speakLettersWhileTyping = v) } }
-            OutlinedButton(onClick = { showPronunciations = true }) { Text("Pronunciations…") }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { showPronunciations = true }) { Text("Pronunciations…") }
+                OutlinedButton(onClick = { showAbbreviations = true }) { Text("Abbreviations…") }
+            }
 
             Header("Touch")
             SliderSetting(
@@ -201,6 +210,16 @@ fun SettingsScreen(vm: AacViewModel) {
                 "Ignore repeated taps for", settings.debounceMs.toFloat(), 0f..2000f,
                 if (settings.debounceMs == 0) "Off" else "${settings.debounceMs} ms", steps = 19,
             ) { v -> update { it.copy(debounceMs = (v / 100).roundToInt() * 100) } }
+            ToggleSetting("Spaces between buttons count as touches", settings.touchGaps) { v -> update { it.copy(touchGaps = v) } }
+            SliderSetting(
+                "Slide to select (rest on a button)", settings.dwellMs.toFloat(), 0f..3000f,
+                if (settings.dwellMs == 0) "Off" else "${settings.dwellMs} ms", steps = 29,
+            ) { v -> update { it.copy(dwellMs = (v / 100).roundToInt() * 100) } }
+            Text(
+                "With slide to select on, keep a finger on the board and slide; a button is chosen after the finger rests on it this long. " +
+                    "Lifting the finger cancels. Works on word pages (not photo scenes or the menu).",
+                style = MaterialTheme.typography.bodySmall,
+            )
             ToggleSetting("Vibrate on tap", settings.haptics) { v -> update { it.copy(haptics = v) } }
 
             Header("Vocabulary level")
@@ -211,6 +230,11 @@ fun SettingsScreen(vm: AacViewModel) {
             }
             Text(
                 "Lower levels hide words in place. Nothing moves when you go up a level, so motor memory carries over.",
+                fontSize = 13.sp, color = MaterialTheme.colorScheme.outline,
+            )
+            ToggleSetting("Show Explore button", settings.showExploreButton) { v -> update { it.copy(showExploreButton = v) } }
+            Text(
+                "Explore shows hidden words (faded) for a while so they can be tried or modelled, without changing the level.",
                 fontSize = 13.sp, color = MaterialTheme.colorScheme.outline,
             )
 
@@ -346,6 +370,7 @@ fun SettingsScreen(vm: AacViewModel) {
 
     if (showSnapshots) SnapshotDialog(vm, onDismiss = { showSnapshots = false }, onRestored = { toast("Restored. Use Undo in edit mode to go back.") })
     if (showPronunciations) PronunciationDialog(vm, onDismiss = { showPronunciations = false })
+    if (showAbbreviations) AbbreviationDialog(vm, onDismiss = { showAbbreviations = false })
     if (settingPin) {
         TextInputDialog(
             title = "Choose a PIN (4–8 digits)",
@@ -445,6 +470,35 @@ private fun SnapshotDialog(vm: AacViewModel, onDismiss: () -> Unit, onRestored: 
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+    )
+}
+
+@Composable
+private fun AbbreviationDialog(vm: AacViewModel, onDismiss: () -> Unit) {
+    val vocabulary by vm.vocabulary.collectAsStateWithLifecycle()
+    var shortcut by remember { mutableStateOf("") }
+    var expansion by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Abbreviations") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Type a shortcut on the keyboard, then space: it becomes the full words.", fontSize = 13.sp)
+                vocabulary.abbreviations.toSortedMap().forEach { (short, full) ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("$short → $full", Modifier.weight(1f))
+                        TextButton(onClick = { vm.setAbbreviation(short, null) }) { Text("Remove") }
+                    }
+                }
+                OutlinedTextField(shortcut, { shortcut = it.replace(" ", "") }, label = { Text("Shortcut (e.g. hru)") }, singleLine = true)
+                OutlinedTextField(expansion, { expansion = it }, label = { Text("Full words (e.g. how are you)") }, singleLine = true)
+                Button(
+                    onClick = { vm.setAbbreviation(shortcut, expansion); shortcut = ""; expansion = "" },
+                    enabled = shortcut.isNotBlank() && expansion.isNotBlank(),
+                ) { Text("Add") }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
     )
 }
 

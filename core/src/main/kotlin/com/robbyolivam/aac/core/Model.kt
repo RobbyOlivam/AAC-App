@@ -142,6 +142,8 @@ data class Vocabulary(
     val quickStrip: List<Cell>,
     /** Whole-word pronunciation overrides applied before speaking, e.g. "Siobhan" -> "shiv awn". */
     val pronunciations: Map<String, String> = emptyMap(),
+    /** Typed shortcuts that expand when the word is finished, e.g. "hru" -> "how are you". */
+    val abbreviations: Map<String, String> = emptyMap(),
 ) {
     fun board(id: String): Board? = boards.firstOrNull { it.id == id }
 

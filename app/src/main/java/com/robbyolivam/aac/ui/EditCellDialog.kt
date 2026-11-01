@@ -26,6 +26,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Mic
@@ -96,11 +98,13 @@ fun EditCellDialog(vm: AacViewModel, target: EditTarget) {
     var recording by remember { mutableStateOf(false) }
     var pendingAudio by remember { mutableStateOf<String?>(null) }
 
+    // New pictures go through the crop step before they're saved.
+    var cropping by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        uri?.let { vm.media.importImage(it)?.let { path -> imagePath = path } }
+        uri?.let { vm.media.decode(it, maxSize = 1600) }?.let { cropping = it }
     }
     val takePhoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
-        bitmap?.let { imagePath = vm.media.saveBitmap(it) }
+        bitmap?.let { cropping = it }
     }
     val pickScenePhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let { vm.media.importImage(it, maxSize = 1600) }?.let { path ->
@@ -162,6 +166,17 @@ fun EditCellDialog(vm: AacViewModel, target: EditTarget) {
         vm.saveCell(target, cell)
     }
 
+    cropping?.let { bitmap ->
+        CropDialog(
+            bitmap = bitmap,
+            onDone = { cropped ->
+                imagePath = vm.media.saveBitmap(cropped)
+                cropping = null
+            },
+            onCancel = { cropping = null },
+        )
+    }
+
     Dialog(onDismissRequest = { vm.editing = null }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize()) {
@@ -183,6 +198,12 @@ fun EditCellDialog(vm: AacViewModel, target: EditTarget) {
                     Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
+                    val copied = vm.clipboard
+                    if (copied != null && original == null && target is EditTarget.Grid && hotspot == null) {
+                        Button(onClick = { vm.pasteInto(target) }, modifier = Modifier.fillMaxWidth()) {
+                            Icon(Icons.Default.ContentPaste, null); Text("  Paste “${copied.label}” here")
+                        }
+                    }
                     // Preview + picture
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Box(Modifier.size(96.dp)) {
@@ -370,6 +391,9 @@ fun EditCellDialog(vm: AacViewModel, target: EditTarget) {
                     if (original != null && target is EditTarget.Grid) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (hotspot == null) OutlinedButton(onClick = { vm.startMove(target) }) { Text("Move…") }
+                            OutlinedButton(onClick = { build()?.let(vm::copyCell) }) {
+                                Icon(Icons.Default.ContentCopy, null); Text(" Copy")
+                            }
                             OutlinedButton(onClick = { vm.saveCell(target, null) }) {
                                 Icon(Icons.Default.Delete, null); Text("Delete")
                             }

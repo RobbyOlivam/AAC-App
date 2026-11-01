@@ -7,6 +7,7 @@ import android.graphics.Paint
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -217,6 +218,81 @@ class ScreenTest {
         compose.waitForIdle()
         assertEquals(com.robbyolivam.aac.core.VoiceAge.KID, app.settings.settings.value.voiceAge)
         shot("phone_settings_voice_age")
+    }
+
+    @Test
+    fun exploreShowsHiddenWordsForNow() {
+        launch { app.settings.update { it.copy(vocabularyLevel = 1, showExploreButton = true) } }
+        assertTrue("who is hidden at level 1", !hasText("who"))
+        compose.onNodeWithContentDescription("Explore").performClick()
+        assertTrue("explore shows who", hasText("who"))
+        shot("phone_explore")
+        compose.onNodeWithContentDescription("who").performClick()
+        compose.waitForIdle()
+        assertEquals("who went into the message", 2, compose.onAllNodesWithText("who").fetchSemanticsNodes().size)
+        compose.onNodeWithContentDescription("Exploring").performClick()
+        compose.waitForIdle()
+        assertTrue("hidden again after turning explore off", compose.onAllNodesWithContentDescription("who").fetchSemanticsNodes().isEmpty())
+        assertEquals(1, app.settings.settings.value.vocabularyLevel)
+    }
+
+    @Test
+    fun copyAndPasteAButton() {
+        launch {
+            app.settings.update { it.copy(settingsLock = SettingsLock.NONE) }
+            app.vocabulary.edit { it.setCell(DefaultVocabulary.HOME, 47, null) }
+        }
+        compose.onNodeWithContentDescription("Settings").performClick()
+        compose.onNodeWithText("Edit boards", substring = true).performClick()
+        compose.onNodeWithContentDescription("want").performClick()
+        compose.onNodeWithText("Copy", substring = true).performScrollTo().performClick()
+        compose.waitForIdle()
+        assertTrue(hasText("tap an empty spot to paste", substring = true))
+        compose.onNodeWithContentDescription("Empty").performClick()
+        compose.onNodeWithText("Paste “want” here", substring = true).performClick()
+        compose.waitForIdle()
+        val home = app.vocabulary.vocabulary.value.board(DefaultVocabulary.HOME)!!
+        val pasted = home.cells[47]!!
+        assertEquals("want", pasted.label)
+        assertTrue("pasted button has its own id", home.cells.count { it?.id == pasted.id } == 1)
+        shot("phone_after_paste")
+    }
+
+    @Test
+    fun abbreviationExpandsWhenTyped() {
+        launch { app.vocabulary.edit { it.copy(abbreviations = mapOf("hru" to "how are you")) } }
+        compose.onNodeWithContentDescription("ABC").performClick()
+        listOf("h", "r", "u").forEach { compose.onNodeWithText(it).performClick() }
+        assertTrue("expansion offered as a prediction", hasText("how are you"))
+        compose.onNodeWithText("space").performClick()
+        compose.waitForIdle()
+        listOf("how", "are", "you").forEach { assertTrue("$it in message", hasText(it)) }
+        shot("phone_abbreviation")
+    }
+
+    @Test
+    fun slideToSelectChoosesAfterResting() {
+        launch { app.settings.update { it.copy(dwellMs = 600) } }
+        val want = compose.onNodeWithContentDescription("want").fetchSemanticsNode().boundsInRoot
+        val go = compose.onNodeWithContentDescription("go").fetchSemanticsNode().boundsInRoot
+        compose.mainClock.autoAdvance = false
+        compose.onRoot().performTouchInput { down(want.center) }
+        compose.mainClock.advanceTimeBy(300)
+        compose.onRoot().performTouchInput { moveTo(go.center) } // slid away before the dwell time
+        compose.mainClock.advanceTimeBy(800)
+        compose.onRoot().performTouchInput { up() }
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+        assertTrue("go chosen by resting on it", compose.onAllNodesWithText("go").fetchSemanticsNodes().size >= 2)
+        assertEquals("want not chosen (finger moved on)", 1, compose.onAllNodesWithText("want").fetchSemanticsNodes().size)
+    }
+
+    @Test
+    fun settingsTouchAndVolume() {
+        launch { app.settings.update { it.copy(settingsLock = SettingsLock.NONE, dwellMs = 800, touchGaps = true, volume = 0.8f) } }
+        compose.onNodeWithContentDescription("Settings").performClick()
+        compose.onNodeWithText("Slide to select (rest on a button)").performScrollTo()
+        shot("phone_settings_touch")
     }
 
     @Test
