@@ -32,6 +32,8 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Backspace
 import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.PauseCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Forum
@@ -423,6 +425,17 @@ private fun PredictionRow(vm: AacViewModel, predictions: Predictions, isScanned:
                     scanned = isScanned("predictions", "pred-$i"),
                     onClick = { vm.choosePrediction(cell.text) },
                 )
+            }
+        }
+        val settings by vm.settings.collectAsStateWithLifecycle()
+        if (settings.usageLogging) {
+            // Always visible while logging is on, and the person can pause it themselves.
+            IconButton(onClick = vm::toggleUsagePause) {
+                if (settings.usagePaused) {
+                    Icon(Icons.Default.PauseCircle, "Usage log paused. Tap to resume.", tint = MaterialTheme.colorScheme.outline)
+                } else {
+                    Icon(Icons.Default.FiberManualRecord, "Usage log on. Tap to pause.", tint = Color(0xFFD32F2F))
+                }
             }
         }
         IconButton(onClick = { vm.showPartner = true }) { Icon(Icons.Default.Tv, "Show message to partner") }

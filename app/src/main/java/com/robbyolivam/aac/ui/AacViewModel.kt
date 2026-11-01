@@ -27,6 +27,8 @@ import com.robbyolivam.aac.core.WordLocation
 import com.robbyolivam.aac.core.WordType
 import com.robbyolivam.aac.core.addBoard
 import com.robbyolivam.aac.core.allWordCells
+import com.robbyolivam.aac.core.UsageEvent
+import com.robbyolivam.aac.core.UsageSource
 import com.robbyolivam.aac.core.applyPronunciations
 import com.robbyolivam.aac.core.duplicateBoard
 import com.robbyolivam.aac.core.expandAbbreviation
@@ -45,7 +47,7 @@ private var nextTokenId = 0L
 
 enum class Panel { BOARD, KEYBOARD }
 
-enum class Screen { MAIN, SETTINGS }
+enum class Screen { MAIN, SETTINGS, REPORT }
 
 sealed interface EditTarget {
     data class Grid(val boardId: String, val index: Int) : EditTarget
@@ -68,6 +70,7 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
     val openBoard = app.openBoard
     val pdf = app.pdf
     val symbols = app.symbols
+    val usage = app.usage
 
     val vocabulary get() = store.vocabulary
     val settings get() = settingsStore.settings
@@ -176,7 +179,7 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
             formsFor = cell
             return
         }
-        activate(cell, boardId)
+        activate(cell, boardId, index.takeIf { v.board(boardId)?.isScene != true })
     }
 
     fun onStripSelected(index: Int, cell: Cell) {
@@ -185,6 +188,7 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         if (debounced()) return
+        logSpoken(cell.text, UsageSource.STRIP)
         speakCell(cell)
     }
 
@@ -193,12 +197,16 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
         if (EnglishMorphology.hasForms(cell.text, cell.type)) formsFor = cell
     }
 
-    private fun activate(cell: Cell, boardId: String) {
+    private fun activate(cell: Cell, boardId: String, index: Int?) {
         when (cell.action) {
             CellAction.FOLDER -> cell.linkTo?.let { navigate(it) }
-            CellAction.PHRASE -> speakCell(cell)
+            CellAction.PHRASE -> {
+                logSpoken(cell.text, UsageSource.PHRASE)
+                speakCell(cell)
+            }
             CellAction.WORD -> {
                 addToken(MessageToken(cell.text, cell.type, cell.symbol))
+                logWord(cell.text, boardId, index)
                 if (s.speakOnSelect) speakCell(cell)
                 afterWord(boardId)
             }
@@ -208,6 +216,7 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
     fun selectForm(cell: Cell, form: String) {
         formsFor = null
         addToken(MessageToken(form, cell.type, cell.symbol))
+        logWord(form, currentBoardId, null)
         if (s.speakOnSelect) speak(form)
         afterWord(currentBoardId)
     }
@@ -222,6 +231,26 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
         commitTyping()
         message.add(token)
     }
+
+    // ---- Usage log (opt-in, pausable by the user) --------------------------------------------
+
+    private val logging: Boolean get() = s.usageLogging && !s.usagePaused && !editMode
+
+    private fun logWord(text: String, boardId: String, index: Int?) {
+        val source = if (boardId == v.homeBoardId) UsageSource.CORE else UsageSource.FOLDER
+        if (logging) usage.append(UsageEvent(System.currentTimeMillis(), text, source, boardId = boardId, index = index))
+    }
+
+    private fun logWord(text: String, source: UsageSource) {
+        if (logging) usage.append(UsageEvent(System.currentTimeMillis(), text, source))
+    }
+
+    private fun logSpoken(text: String, source: UsageSource) {
+        if (logging) usage.append(UsageEvent(System.currentTimeMillis(), text, source, utterance = true))
+    }
+
+    /** The user's own privacy switch: pause or resume logging without opening settings. */
+    fun toggleUsagePause() = settingsStore.update { it.copy(usagePaused = !it.usagePaused) }
 
     // ---- Navigation ------------------------------------------------------------------------
 
@@ -279,6 +308,7 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
     fun speakMessage() {
         val text = messageText()
         if (text.isBlank()) return
+        logSpoken(text, UsageSource.MESSAGE)
         speak(text)
         store.predictor.learn(text)
         store.savePredictor()
@@ -360,12 +390,14 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
             expansion.split(' ').filter { it.isNotBlank() }.forEach { w ->
                 val cell = index[w.lowercase()]
                 message.add(MessageToken(w, cell?.type, cell?.symbol))
+                logWord(w, UsageSource.KEYBOARD)
             }
             if (s.speakLettersWhileTyping) speak(expansion)
             return
         }
         val cell = wordIndex()[word.lowercase()]
         message.add(MessageToken(word, cell?.type, cell?.symbol))
+        logWord(word, UsageSource.KEYBOARD)
         if (s.speakLettersWhileTyping) speak(word)
     }
 
@@ -375,6 +407,7 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
         word.split(' ').filter { it.isNotBlank() }.forEach { w ->
             val cell = index[w.lowercase()]
             message.add(MessageToken(w, cell?.type, cell?.symbol))
+            logWord(w, UsageSource.PREDICTION)
         }
         if (s.speakOnSelect && panel == Panel.BOARD) speak(word)
     }

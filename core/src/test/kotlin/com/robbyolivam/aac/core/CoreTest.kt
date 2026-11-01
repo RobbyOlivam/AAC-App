@@ -400,3 +400,63 @@ class BatchATest {
         assertEquals(v, copy.copy(boards = copy.boards.filter { it.id != "home-copy" }))
     }
 }
+
+class UsageTest {
+    private val day = 24 * 60 * 60 * 1000L
+    private fun word(t: Long, w: String, s: UsageSource = UsageSource.CORE, i: Int? = null) =
+        UsageEvent(t, w, s, boardId = if (i != null) "home" else null, index = i)
+
+    @Test
+    fun encodeDecodeRoundTripsAndSkipsDamagedLines() {
+        val e = UsageEvent(123, "I want \"more\"", UsageSource.MESSAGE, utterance = true)
+        assertEquals(e, UsageLog.decode(UsageLog.encode(e)))
+        assertNull(UsageLog.decode("{not json"))
+        assertNull(UsageLog.decode(""))
+    }
+
+    @Test
+    fun reportCountsWordsMessagesAndCoreShare() {
+        val start = 10 * day
+        val events = listOf(
+            word(start - day, "want"), // before the period: "want" isn't new
+            word(start + 1, "I", i = 0),
+            word(start + 2, "want", i = 1),
+            word(start + 3, "pizza", UsageSource.FOLDER),
+            UsageEvent(start + 4, "I want pizza", UsageSource.MESSAGE, utterance = true),
+            word(start + day + 5, "want", i = 1),
+            word(start + day + 6, "go", UsageSource.KEYBOARD),
+            UsageEvent(start + day + 7, "want go", UsageSource.MESSAGE, utterance = true),
+            UsageEvent(start + day + 8, "Help", UsageSource.STRIP, utterance = true),
+        )
+        val r = UsageLog.report(events, from = start, to = start + 7 * day, utcOffsetMillis = 0)
+        assertEquals(5, r.totalWords)
+        assertEquals(4, r.uniqueWords)
+        assertEquals(2, r.messages)
+        assertEquals(2.5, r.meanLengthOfUtterance, 1e-9)
+        assertEquals(1, r.phrasesSpoken)
+        assertEquals(3, r.coreWords)
+        assertEquals(2, r.fringeWords)
+        assertEquals(60, r.corePercent)
+        assertEquals(listOf("i", "pizza", "go"), r.newWords)
+        assertEquals("want" to 2, r.topWords.first())
+        assertEquals(7, r.wordsPerDay.size)
+        assertEquals(listOf(3, 2, 0, 0, 0, 0, 0), r.wordsPerDay.map { it.second })
+        assertEquals(2, r.buttonTaps["home" to 1])
+        assertEquals(2, r.activeDays)
+    }
+
+    @Test
+    fun daysFollowLocalTime() {
+        // 23:30 UTC is the next day at UTC+1.
+        val t = 5 * day - 30 * 60 * 1000L
+        assertEquals(4, UsageLog.day(t, 0))
+        assertEquals(5, UsageLog.day(t, 60 * 60 * 1000L))
+    }
+
+    @Test
+    fun csvQuotesText() {
+        val csv = UsageLog.toCsv(listOf(UsageEvent(0, "say \"hi\", ok", UsageSource.MESSAGE, utterance = true)))
+        assertTrue(csv.lines()[1].contains("\"say \"\"hi\"\", ok\""))
+        assertTrue(csv.startsWith("time_utc,kind,source,text"))
+    }
+}

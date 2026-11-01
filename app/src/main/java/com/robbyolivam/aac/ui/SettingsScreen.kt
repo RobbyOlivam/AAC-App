@@ -294,6 +294,15 @@ fun SettingsScreen(vm: AacViewModel) {
                 ToggleSetting("Tap anywhere on screen as a switch", settings.scanTouchAnywhere) { v -> update { it.copy(scanTouchAnywhere = v) } }
             }
 
+            Header("Usage log")
+            ToggleSetting("Keep a usage log on this device", settings.usageLogging) { v -> update { it.copy(usageLogging = v, usagePaused = false) } }
+            Text(
+                "Records words and messages (with times) so you can see progress. It stays on this device, isn't in cloud backups, " +
+                    "and the person can pause it any time with the dot next to the suggestions.",
+                fontSize = 13.sp, color = MaterialTheme.colorScheme.outline,
+            )
+            OutlinedButton(onClick = { vm.screen = Screen.REPORT }) { Text("Usage report…") }
+
             Header("Device")
             Text("Protect settings and editing", fontWeight = FontWeight.SemiBold)
             ChipFlow {
