@@ -40,18 +40,6 @@ object Wav {
         return null
     }
 
-    /** A 16-bit PCM WAV file holding [pcm]. */
-    fun write(pcm: Pcm): ByteArray {
-        val out = java.io.ByteArrayOutputStream(44 + pcm.data.size)
-        fun int16(v: Int) { out.write(v and 0xFF); out.write((v shr 8) and 0xFF) }
-        fun int32(v: Int) { int16(v and 0xFFFF); int16((v ushr 16) and 0xFFFF) }
-        out.write("RIFF".toByteArray()); int32(36 + pcm.data.size); out.write("WAVE".toByteArray())
-        out.write("fmt ".toByteArray()); int32(16); int16(1); int16(pcm.channels); int32(pcm.sampleRate)
-        int32(pcm.sampleRate * pcm.channels * 2); int16(pcm.channels * 2); int16(16)
-        out.write("data".toByteArray()); int32(pcm.data.size); out.write(pcm.data)
-        return out.toByteArray()
-    }
-
     private fun ByteArray.ascii(at: Int) = String(this, at, 4, Charsets.US_ASCII)
     private fun ByteArray.int16(at: Int) = (this[at].toInt() and 0xFF) or ((this[at + 1].toInt() and 0xFF) shl 8)
     private fun ByteArray.int32(at: Int) = int16(at) or (int16(at + 2) shl 16)
