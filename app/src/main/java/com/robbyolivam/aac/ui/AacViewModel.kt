@@ -8,6 +8,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.launch
 import com.robbyolivam.aac.AacApplication
 import com.robbyolivam.aac.core.Board
@@ -27,6 +30,7 @@ import com.robbyolivam.aac.core.WordLocation
 import com.robbyolivam.aac.core.WordType
 import com.robbyolivam.aac.core.addBoard
 import com.robbyolivam.aac.core.allWordCells
+import com.robbyolivam.aac.ai.ExpanderState
 import com.robbyolivam.aac.core.Tone
 import com.robbyolivam.aac.core.UsageEvent
 import com.robbyolivam.aac.core.UsageSource
@@ -74,6 +78,11 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
     val pdf = app.pdf
     val symbols = app.symbols
     val usage = app.usage
+    val expander get() = app.expander
+
+    /** "Expand my words" suggestion for the current message, when the on-device AI has one. */
+    var aiSuggestion by mutableStateOf<String?>(null)
+        private set
 
     val vocabulary get() = store.vocabulary
     val settings get() = settingsStore.settings
@@ -88,6 +97,7 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
             settingsStore.settings.collect {
                 scanner.configure(it)
                 speaker.volume = it.volume
+                if (it.expandWords && expander.state.value == ExpanderState.Checking) expander.refresh()
             }
         }
     }
@@ -97,6 +107,19 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
     private val backStack = ArrayDeque<String>()
 
     val message = mutableStateListOf<MessageToken>()
+
+    init {
+        // "Expand my words": ask the on-device AI after a pause in tapping (declared after
+        // [message], which it watches).
+        viewModelScope.launch {
+            snapshotFlow { message.map { it.text } }.collectLatest { words ->
+                aiSuggestion = null
+                if (!s.expandWords || words.size < 2 || words.size > 12) return@collectLatest
+                delay(400)
+                aiSuggestion = expander.expand(words.joinToString(" "))
+            }
+        }
+    }
     var typing by mutableStateOf("")
         private set
 
@@ -391,6 +414,9 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
         return (listOf(expansion) + words).distinct().take(limit)
     }
 
+    /** The sparkle suggestion: the on-device AI's sentence if there is one, else the grammar helper's. */
+    fun sentenceSuggestion(): String? = aiSuggestion ?: polishSuggestion()
+
     fun polishSuggestion(): String? {
         if (!s.grammarHelper || message.size < 2) return null
         return GrammarHelper.polish(message.map { Token(it.text, it.type) })
@@ -485,6 +511,16 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
 
     fun cancelMove() {
         moveSource = null
+    }
+
+    /** Whether the "Add a word" wizard is open. */
+    var addingWord by mutableStateOf(false)
+
+    /** Adds a word from the wizard and shows its page, so the person sees where it went. */
+    fun addWord(word: String, type: WordType, libraryId: String?, boardId: String, index: Int) {
+        val cell = Cell(id = newCellId(), label = word, symbol = Symbol(libraryId = libraryId), type = type)
+        store.edit { it.setCell(boardId, index, cell) }
+        navigate(boardId)
     }
 
     fun copyCell(cell: Cell) {

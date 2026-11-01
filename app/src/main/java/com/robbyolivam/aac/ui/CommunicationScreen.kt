@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Backspace
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.PauseCircle
+import androidx.compose.material.icons.filled.PostAdd
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Forum
@@ -112,7 +113,7 @@ fun CommunicationScreen(vm: AacViewModel) {
     val guideRoot = guide?.path?.first()?.boardId?.takeIf { guideOnBoard == null }
     val showBackBar = vm.panel == Panel.KEYBOARD || board.id != vocabulary.homeBoardId
     val predictions = Predictions(
-        suggestion = vm.polishSuggestion(),
+        suggestion = vm.sentenceSuggestion(),
         board = if (settings.showPredictions && !vm.editMode && vm.panel == Panel.BOARD) vm.boardPredictions() else emptyList(),
         keyboard = if (settings.showPredictions && !vm.editMode && vm.panel == Panel.KEYBOARD) vm.keyboardPredictions() else emptyList(),
     )
@@ -210,6 +211,7 @@ fun CommunicationScreen(vm: AacViewModel) {
     if (vm.searchOpen) SearchDialog(vm, vm.media, onDismiss = { vm.searchOpen = false })
     if (vm.showPartner) PartnerDisplay(vm.messageText(), onSpeak = vm::speakMessage, onClose = { vm.showPartner = false })
     vm.editing?.let { target -> EditCellDialog(vm, target) }
+    if (vm.addingWord) AddWordWizard(vm, onDone = { vm.addingWord = false })
 }
 
 @Composable
@@ -670,6 +672,7 @@ private fun EditBanner(vm: AacViewModel, board: Board) {
                 )
             }
             if (vm.moveSource != null) TextButton(onClick = vm::cancelMove) { Text("Cancel move") }
+            IconButton(onClick = { vm.addingWord = true }) { Icon(Icons.Default.PostAdd, "Add a word") }
             IconButton(onClick = { options = true }) { Icon(Icons.Default.Tune, "Page options") }
             IconButton(onClick = vm::undo, enabled = canUndo) { Icon(Icons.Default.Undo, "Undo") }
             IconButton(onClick = vm::redo, enabled = canRedo) { Icon(Icons.Default.Redo, "Redo") }
