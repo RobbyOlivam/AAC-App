@@ -73,6 +73,10 @@ data class Settings(
     val scanSpeakItems: Boolean = false,
     /** Treat a tap anywhere on the screen as a switch press (no Bluetooth switch needed). */
     val scanTouchAnywhere: Boolean = true,
+    // Usage log (opt-in; stays on this device)
+    val usageLogging: Boolean = false,
+    /** Privacy pause: the user can stop logging any time from the main screen. */
+    val usagePaused: Boolean = false,
     // Device
     val settingsLock: SettingsLock = SettingsLock.HOLD,
     val pin: String = "",

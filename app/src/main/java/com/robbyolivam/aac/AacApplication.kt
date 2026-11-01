@@ -7,6 +7,7 @@ import com.robbyolivam.aac.data.OpenBoardFiles
 import com.robbyolivam.aac.data.PdfExporter
 import com.robbyolivam.aac.data.SettingsStore
 import com.robbyolivam.aac.data.SymbolLibrary
+import com.robbyolivam.aac.data.UsageStore
 import com.robbyolivam.aac.data.VocabularyStore
 import com.robbyolivam.aac.speech.AudioRecorder
 import com.robbyolivam.aac.speech.Speaker
@@ -32,6 +33,8 @@ class AacApplication : Application() {
         private set
     lateinit var symbols: SymbolLibrary
         private set
+    lateinit var usage: UsageStore
+        private set
 
     override fun onCreate() {
         super.onCreate()
@@ -45,6 +48,7 @@ class AacApplication : Application() {
         openBoard = OpenBoardFiles(vocabulary, media)
         symbols = SymbolLibrary(this)
         pdf = PdfExporter(vocabulary, symbols)
+        usage = UsageStore(this).also { it.prune() }
     }
 
     /**

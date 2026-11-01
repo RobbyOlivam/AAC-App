@@ -29,6 +29,7 @@ import com.robbyolivam.aac.ui.CommunicationScreen
 import com.robbyolivam.aac.ui.LocalSymbolLibrary
 import com.robbyolivam.aac.ui.LocalSymbolStyle
 import com.robbyolivam.aac.ui.Panel
+import com.robbyolivam.aac.ui.ReportScreen
 import com.robbyolivam.aac.ui.Screen
 import com.robbyolivam.aac.ui.SettingsScreen
 import com.robbyolivam.aac.ui.theme.AacTheme
@@ -82,6 +83,7 @@ class MainActivity : ComponentActivity() {
                                 CommunicationScreen(vm)
                             }
                             Screen.SETTINGS -> SettingsScreen(vm)
+                            Screen.REPORT -> ReportScreen(vm)
                         }
                     }
                 }

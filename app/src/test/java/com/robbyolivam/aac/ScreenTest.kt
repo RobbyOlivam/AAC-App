@@ -296,6 +296,55 @@ class ScreenTest {
     }
 
     @Test
+    fun usageLogFeedsTheReport() {
+        launch { app.settings.update { it.copy(usageLogging = true, settingsLock = SettingsLock.NONE) } }
+        listOf("I", "want", "more").forEach { compose.onNodeWithContentDescription(it).performClick() }
+        compose.onNodeWithContentDescription("Speak message").performClick()
+        compose.onNodeWithContentDescription("Food folder").performClick()
+        compose.onNodeWithContentDescription("pizza").performClick()
+        compose.onNodeWithContentDescription("want").performClick()
+        compose.waitForIdle()
+        val events = app.usage.readAll()
+        assertEquals(listOf("I", "want", "more", "I want more", "pizza", "want"), events.map { it.text })
+        assertEquals(com.robbyolivam.aac.core.UsageSource.FOLDER, events[4].source)
+
+        compose.onNodeWithContentDescription("Settings").performClick()
+        compose.onNodeWithText("Usage report…").performScrollTo().performClick()
+        compose.waitUntil(5_000) { hasText("Words used") }
+        assertTrue("5 words", hasText("5"))
+        assertTrue("MLU of the one message", hasText("3.0"))
+        assertTrue("80% core", hasText("80%"))
+        shot("phone_usage_report")
+        compose.onNodeWithText("Core page: taps per button").performScrollTo()
+        shot("phone_usage_heatmap")
+    }
+
+    @Test
+    fun privacyPauseStopsLogging() {
+        launch { app.settings.update { it.copy(usageLogging = true) } }
+        compose.onNodeWithContentDescription("I").performClick()
+        compose.onNodeWithContentDescription("Usage log on. Tap to pause.").performClick()
+        compose.onNodeWithContentDescription("want").performClick()
+        compose.waitForIdle()
+        assertTrue(app.settings.settings.value.usagePaused)
+        shot("phone_usage_paused")
+        compose.onNodeWithContentDescription("Usage log paused. Tap to resume.").performClick()
+        compose.onNodeWithContentDescription("go").performClick()
+        compose.waitForIdle()
+        assertEquals(listOf("I", "go"), app.usage.readAll().map { it.text })
+    }
+
+    @Test
+    fun noLoggingUnlessTurnedOn() {
+        launch()
+        compose.onNodeWithContentDescription("I").performClick()
+        compose.onNodeWithContentDescription("Speak message").performClick()
+        compose.waitForIdle()
+        assertTrue(app.usage.readAll().isEmpty())
+        assertTrue(compose.onAllNodesWithContentDescription("Usage log on. Tap to pause.").fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
     @Config(qualifiers = PIXEL_LAND)
     fun photoScene() {
         val bitmap = Bitmap.createBitmap(800, 600, Bitmap.Config.ARGB_8888)

@@ -73,6 +73,14 @@ The screen tests drive the real app on the JVM (Robolectric) on a Pixel-sized an
 | Vocabulary | **Explore mode** (Settings → Show Explore button): shows words hidden by level or by hand, faded, until turned off. Nothing moves |
 | Keyboard | **Abbreviations** (Settings → Voice → Abbreviations): "hru" + space becomes "how are you"; also offered as a prediction |
 
+## Batch B additions (0.5.0)
+
+| Area | Features |
+|---|---|
+| Usage log | **Opt-in** (Settings → Usage log). Logs words added to the message and messages spoken, with times. Stays on the device, excluded from Android cloud backup and device transfer, trimmed after 400 days |
+| Privacy pause | While logging is on, a red dot next to the suggestions shows it. The person can tap it to pause (and again to resume) without opening settings |
+| Usage report | Settings → Usage report: words used, different words, active days, messages spoken, average words per message (MLU), core-word share, words per day, new words, most-used words, and a Core-page heat map. 7 days / 30 days / everything. **Export CSV** and **Clear log** |
+
 Symbol assets are rebuilt with `scripts/build-symbols.py` (see the script header).
 
 ## Project layout
