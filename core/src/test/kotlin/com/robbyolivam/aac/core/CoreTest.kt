@@ -514,22 +514,6 @@ class WordWizardTest {
     }
 }
 
-class ExpansionCheckTest {
-    @Test
-    fun acceptsSentencesThatKeepTheWords() {
-        assertEquals("I want some juice, please.", ExpansionCheck.accept("want juice", "I want some juice, please."))
-        assertEquals("She goes to the park.", ExpansionCheck.accept("she go park", "\"She goes to the park.\"\nExtra line"))
-        assertEquals("I went home yesterday.", ExpansionCheck.accept("I go home yesterday", "I went home yesterday."))
-    }
-
-    @Test
-    fun rejectsChangedMeaningOrRunaways() {
-        assertNull(ExpansionCheck.accept("want juice", "I want some milk."))
-        assertNull(ExpansionCheck.accept("want juice", null))
-        assertNull(ExpansionCheck.accept("want juice", "want juice"))
-        assertNull(ExpansionCheck.accept("want juice", "I want juice " + "very ".repeat(20)))
-    }
-}
 
 class SymbolContextTest {
     @Test

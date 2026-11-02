@@ -53,7 +53,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.robbyolivam.aac.ai.ExpanderState
 import com.robbyolivam.aac.core.VoiceAge
 import com.robbyolivam.aac.data.KeyboardLayout
 import com.robbyolivam.aac.data.OrientationMode
@@ -280,7 +279,6 @@ fun SettingsScreen(vm: AacViewModel) {
             ToggleSetting("Go back to Core after picking a folder word", settings.returnHomeAfterFolderWord) { v -> update { it.copy(returnHomeAfterFolderWord = v) } }
             ToggleSetting("Show word predictions", settings.showPredictions) { v -> update { it.copy(showPredictions = v) } }
             ToggleSetting("Suggest full sentences (grammar helper)", settings.grammarHelper) { v -> update { it.copy(grammarHelper = v) } }
-            ExpandWordsSetting(vm, settings.expandWords) { v -> update { it.copy(expandWords = v) } }
             ToggleSetting("Show labels", settings.showLabels) { v -> update { it.copy(showLabels = v) } }
             SliderSetting("Label size", settings.labelScale, 0.7f..1.6f, "%.0f%%".format(settings.labelScale * 100)) { v -> update { it.copy(labelScale = v) } }
             Text("Keyboard", fontWeight = FontWeight.SemiBold)
@@ -550,42 +548,6 @@ private fun FeatureCard(
             Icon(icon, null, Modifier.size(34.dp))
             Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Text(subtitle, fontSize = 13.sp, lineHeight = 16.sp)
-        }
-    }
-}
-
-/** On-device Gemini "Expand my words": switch plus whether this phone can run it. */
-@Composable
-private fun ExpandWordsSetting(vm: AacViewModel, enabled: Boolean, onChange: (Boolean) -> Unit) {
-    val state by vm.expander.state.collectAsStateWithLifecycle()
-    LaunchedEffect(enabled) { if (enabled) vm.expander.refresh() }
-    ToggleSetting("Expand my words (on-device AI)", enabled, onChange)
-    Text(
-        "Turns a few words into a full sentence (“want juice” → “I want some juice, please.”) using Gemini Nano on this phone. " +
-            "Nothing is sent anywhere. It's shown as a ✨ suggestion and only used if tapped.",
-        fontSize = 13.sp, color = MaterialTheme.colorScheme.outline,
-    )
-    if (!enabled) return
-    when (val st = state) {
-        ExpanderState.Checking -> Text("Checking this phone…", fontSize = 13.sp)
-        ExpanderState.Unsupported -> Text(
-            "Not available on this phone. Google lets apps use on-device Gemini only on some phones: the Pixel 9, 9 Pro, 9 Pro XL " +
-                "and 9 Pro Fold, the Pixel 10 series, and a few other flagships (not the Pixel 8a or 9a). " +
-                "The grammar helper's sentence suggestions still work.",
-            fontSize = 13.sp, color = MaterialTheme.colorScheme.error,
-        )
-        ExpanderState.NeedsDownload -> Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("The AI model needs a one-time download by Android.", Modifier.weight(1f), fontSize = 13.sp)
-            OutlinedButton(onClick = { vm.expander.download() }) { Text("Download") }
-        }
-        is ExpanderState.Downloading -> Text(
-            if (st.total > 0) "Downloading… ${st.bytes * 100 / st.total}%" else "Downloading (Android is fetching the model)…",
-            fontSize = 13.sp,
-        )
-        ExpanderState.Ready -> Text("Ready.", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
-        is ExpanderState.Failed -> Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Couldn't download: ${st.message}", Modifier.weight(1f), fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
-            OutlinedButton(onClick = { vm.expander.download() }) { Text("Retry") }
         }
     }
 }

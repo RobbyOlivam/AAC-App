@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -21,6 +22,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +43,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -69,6 +75,12 @@ fun Modifier.tutorialAnchor(key: String): Modifier {
     return onGloballyPositioned { anchors[key] = it.boundsInRoot() }
 }
 
+/** Lets tests mark a tour target without the rest of the app. */
+object TutorialTestHooks {
+    @Composable
+    fun Modifier.anchor(key: String): Modifier = tutorialAnchor(key)
+}
+
 /** Shown once, the first time the app opens: offer the tour (or not now). */
 @Composable
 fun WelcomeOffer(onStart: () -> Unit, onLater: () -> Unit) {
@@ -95,12 +107,17 @@ fun WelcomeOffer(onStart: () -> Unit, onLater: () -> Unit) {
 @Composable
 fun TutorialOverlay(step: Int, anchors: Map<String, Rect>, onBack: () -> Unit, onNext: () -> Unit, onSkip: () -> Unit) {
     val current = tutorialSteps[step]
-    val target = current.anchor?.let { anchors[it] }
+    // Targets are measured from the top of the window, but this overlay may start lower (below
+    // the status bar, a notch or other system bars). Measure where the overlay itself is and
+    // move each target into the overlay's own coordinates, so the spotlight lands on it exactly.
+    var origin by remember { mutableStateOf<Offset?>(null) }
+    val target = current.anchor?.let { anchors[it] }?.let { rect -> origin?.let { rect.translate(-it) } }
     val last = step == tutorialSteps.lastIndex
     val highlight = MaterialTheme.colorScheme.primary
     BoxWithConstraints(
         Modifier
             .fillMaxSize()
+            .onGloballyPositioned { origin = it.boundsInRoot().topLeft }
             // Swallow taps so the board can't be used by accident during the tour.
             .pointerInput(Unit) { detectTapGestures { } },
     ) {
@@ -112,6 +129,18 @@ fun TutorialOverlay(step: Int, anchors: Map<String, Rect>, onBack: () -> Unit, o
                 val hole = Rect(target.left - pad, target.top - pad, target.right + pad, target.bottom + pad)
                 drawRoundRect(Color.Transparent, hole.topLeft, hole.size, CornerRadius(16f, 16f), blendMode = BlendMode.Clear)
                 drawRoundRect(highlight, hole.topLeft, hole.size, CornerRadius(16f, 16f), style = Stroke(width = 4.dp.toPx()))
+            }
+        }
+        if (target != null) {
+            // An invisible box exactly over the spotlight, so tests (and accessibility tools) can
+            // check it lines up with its target.
+            with(density) {
+                Box(
+                    Modifier
+                        .offset { IntOffset(target.left.roundToInt(), target.top.roundToInt()) }
+                        .size(target.width.toDp(), target.height.toDp())
+                        .testTag("tour-spotlight"),
+                )
             }
         }
         // Put the card below the target if there's room, otherwise above it; centred without one.

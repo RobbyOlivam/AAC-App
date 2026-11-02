@@ -65,8 +65,6 @@ data class Settings(
     val showLabels: Boolean = true,
     val labelScale: Float = 1.0f,
     val grammarHelper: Boolean = true,
-    /** On-device Gemini turns short messages into full sentences (offered, never spoken by itself). */
-    val expandWords: Boolean = false,
     val keyboardLayout: KeyboardLayout = KeyboardLayout.QWERTY,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     /** 1–4; words above this level are hidden in place. */
