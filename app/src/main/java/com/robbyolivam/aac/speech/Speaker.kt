@@ -13,6 +13,9 @@ import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
 import android.util.Log
 import com.robbyolivam.aac.core.VoiceAge
+import com.robbyolivam.aac.core.platform.AudioOutput
+import com.robbyolivam.aac.core.platform.SpeechOutput
+import com.robbyolivam.aac.core.platform.VoiceInfo
 import com.robbyolivam.aac.core.Wav
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,16 +25,13 @@ import java.security.MessageDigest
 import java.util.Locale
 import kotlin.math.roundToInt
 
-/** Where speech goes: wherever Android routes it, the phone's own speaker, or a private earbud. */
-enum class AudioOutput { DEFAULT, SPEAKER, EARBUD }
-
 /**
  * Offline text-to-speech plus playback of recorded button audio. Teen and kid voice ages, and
  * speech sent to a particular output (earbud or speaker), are made by rendering speech to a
  * file and playing it with AudioTrack (see [VoiceAge]); rendered words are cached, since the
  * same words get spoken over and over.
  */
-class Speaker(context: Context) : TextToSpeech.OnInitListener {
+class Speaker(context: Context) : TextToSpeech.OnInitListener, SpeechOutput {
     private val audioManager = context.applicationContext.getSystemService(AudioManager::class.java)
 
     private val tts = TextToSpeech(context.applicationContext, this)
@@ -43,7 +43,7 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
     private var track: AudioTrack? = null
 
     /** 0–1, applied to speech, rendered voices and recorded button audio. */
-    @Volatile var volume: Float = 1f
+    @Volatile override var volume: Float = 1f
 
     private fun params(level: Float) = Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, level) }
 
@@ -53,11 +53,13 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
 
     private class Render(val tmp: File, val file: File, val formant: Float, val output: AudioOutput, val level: Float)
 
-    private val _voices = MutableStateFlow<List<Voice>>(emptyList())
-    val voices: StateFlow<List<Voice>> = _voices.asStateFlow()
+    /** The engine's voices (to switch to), and the same list as shown to the person. */
+    private var engineVoices: List<Voice> = emptyList()
+    private val _voices = MutableStateFlow<List<VoiceInfo>>(emptyList())
+    override val voices: StateFlow<List<VoiceInfo>> = _voices.asStateFlow()
 
     private val _available = MutableStateFlow(true)
-    val available: StateFlow<Boolean> = _available.asStateFlow()
+    override val available: StateFlow<Boolean> = _available.asStateFlow()
 
     private val attributes = AudioAttributes.Builder()
         .setUsage(AudioAttributes.USAGE_ASSISTANT)
@@ -89,7 +91,7 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
             }
         })
         if (tts.language == null) tts.language = Locale.getDefault()
-        _voices.value = runCatching {
+        engineVoices = runCatching {
             tts.voices.orEmpty()
                 .filter { v ->
                     // Only voices that work offline right now. A "not installed" voice makes the
@@ -100,6 +102,9 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
                 }
                 .sortedWith(compareBy({ it.locale.toString() }, { it.name }))
         }.getOrDefault(emptyList())
+        _voices.value = engineVoices.map { v ->
+            VoiceInfo(id = v.name, displayName = v.name.removePrefix("${v.locale.language}-"), language = v.locale.toString())
+        }
         pending?.invoke()
         pending = null
     }
@@ -109,16 +114,18 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
      * tones such as whisper). Anything other than the default output and adult voice is rendered
      * first, which adds a short delay the first time a word is said.
      */
-    fun speak(
+    override fun speak(
         text: String,
         rate: Float,
         pitch: Float,
-        voiceName: String?,
-        age: VoiceAge = VoiceAge.ADULT,
-        output: AudioOutput = AudioOutput.DEFAULT,
-        level: Float = volume,
+        voiceId: String?,
+        age: VoiceAge,
+        output: AudioOutput,
+        level: Float?,
     ) {
         if (text.isBlank()) return
+        val voiceName = voiceId
+        val level = level ?: volume
         stopAudio()
         val action = {
             applyVoice(voiceName)
@@ -136,7 +143,7 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
     }
 
     /** Whether a headset or earbud (wired, USB or Bluetooth) is connected right now. */
-    fun earbudConnected(): Boolean = device(AudioOutput.EARBUD) != null
+    override fun earbudConnected(): Boolean = device(AudioOutput.EARBUD) != null
 
     private fun device(output: AudioOutput): AudioDeviceInfo? {
         val devices = runCatching { audioManager?.getDevices(AudioManager.GET_DEVICES_OUTPUTS) }.getOrNull().orEmpty()
@@ -232,7 +239,7 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
      */
     private fun applyVoice(voiceName: String?) {
         if (voiceApplied && voiceName == appliedVoice) return
-        val voice = voiceName?.let { name -> _voices.value.firstOrNull { it.name == name } }
+        val voice = voiceName?.let { name -> engineVoices.firstOrNull { it.name == name } }
         val ok = voice != null && tts.setVoice(voice) == TextToSpeech.SUCCESS
         if (!ok) {
             val default = runCatching { tts.defaultVoice }.getOrNull()
@@ -242,7 +249,8 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
         voiceApplied = true
     }
 
-    fun playFile(file: File, output: AudioOutput = AudioOutput.DEFAULT) {
+    override fun playRecording(path: String, output: AudioOutput) {
+        val file = File(path)
         if (!file.exists()) return
         tts.stop()
         stopAudio()
@@ -257,7 +265,7 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
         }
     }
 
-    fun stop() {
+    override fun stop() {
         tts.stop()
         stopAudio()
     }
@@ -272,7 +280,7 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
         }
     }
 
-    fun shutdown() {
+    override fun shutdown() {
         stop()
         tts.shutdown()
     }

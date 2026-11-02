@@ -548,3 +548,38 @@ class SymbolContextTest {
         assertEquals(Vocabulary.CURRENT_VERSION, migrated.version)
     }
 }
+
+class SymbolIndexTest {
+    private val index = SymbolIndex.parse(
+        listOf(
+            "m\t1\ttablet\tNoun\tclinic health Healthcare Medical items",
+            "c\ttablet\ttablet\tNoun\tipad device Electrical Computer",
+            "o\t1F4F1\tmobile phone\t\tphone cell",
+            "o\t2764-FE0F\tred heart\t\tlove",
+            "o\t1F44D\tthumbs up\t\tyes",
+            "bad line",
+        ).joinToString("\n"),
+    )
+
+    @Test
+    fun parsesAndSkipsBadLines() {
+        assertEquals(5, index.symbols.size)
+        assertTrue(index.contains("c:tablet"))
+    }
+
+    @Test
+    fun searchPrefersTheFoldersTopic() {
+        assertEquals("c:tablet", index.search("tablet", context = listOf("computer"))[0].libraryId)
+        assertEquals("m:1", index.search("tablet", context = listOf("medical"))[0].libraryId)
+        // With no folder topic, Mulberry/custom symbols come before OpenMoji.
+        assertTrue(index.search("phone").all { it.set == "o" })
+    }
+
+    @Test
+    fun emojiMapToOpenMoji() {
+        assertEquals("o:1F44D", index.forEmoji("👍"))
+        assertEquals("o:2764-FE0F", index.forEmoji("❤️"))
+        assertNull(index.forEmoji("🦄"))
+        assertEquals(listOf(0x1F44D), SymbolIndex.codePoints("👍"))
+    }
+}

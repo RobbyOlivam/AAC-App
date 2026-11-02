@@ -1,7 +1,6 @@
 package com.robbyolivam.aac.ui
 
 import android.app.Activity
-import android.app.ActivityManager
 import android.content.Context
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -54,6 +53,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.robbyolivam.aac.core.VoiceAge
+import com.robbyolivam.aac.device.AndroidDeviceLock
+import com.robbyolivam.aac.device.isFireTablet
 import com.robbyolivam.aac.data.KeyboardLayout
 import com.robbyolivam.aac.data.OrientationMode
 import com.robbyolivam.aac.data.ScanMode
@@ -138,7 +139,8 @@ fun SettingsScreen(vm: AacViewModel) {
         }
     }
     val activity = context as? Activity
-    var pinned by remember { mutableStateOf(isScreenPinned(context)) }
+    val deviceLock = remember(activity) { activity?.let(::AndroidDeviceLock) }
+    var pinned by remember { mutableStateOf(deviceLock?.isLocked == true) }
 
     BackHandler { vm.screen = Screen.MAIN }
 
@@ -196,10 +198,10 @@ fun SettingsScreen(vm: AacViewModel) {
                 ChipFlow {
                     FilterChip(settings.voiceName == null, { update { it.copy(voiceName = null) } }, { Text("Default") })
                     voices.forEach { voice ->
-                        FilterChip(settings.voiceName == voice.name, {
-                            update { it.copy(voiceName = voice.name) }
-                            vm.speaker.speak("Hi, this is my voice", settings.speechRate, settings.pitch, voice.name, settings.voiceAge)
-                        }, { Text(voice.name.removePrefix("${voice.locale.language}-").take(28)) })
+                        FilterChip(settings.voiceName == voice.id, {
+                            update { it.copy(voiceName = voice.id) }
+                            vm.speaker.speak("Hi, this is my voice", settings.speechRate, settings.pitch, voice.id, settings.voiceAge)
+                        }, { Text(voice.displayName.take(28)) })
                     }
                 }
             }
@@ -374,23 +376,11 @@ fun SettingsScreen(vm: AacViewModel) {
                         )
                     }
                     if (pinned) {
-                        OutlinedButton(onClick = { runCatching { activity.stopLockTask() }; pinned = false }) { Text("Unpin") }
+                        OutlinedButton(onClick = { deviceLock?.unlock(); pinned = false }) { Text("Unpin") }
                     } else {
                         OutlinedButton(onClick = {
                             vm.screen = Screen.MAIN
-                            runCatching { activity.startLockTask() }
-                            // Some devices (Fire tablets among them) only pin once pinning is
-                            // switched on in system settings. If it didn't take, say how.
-                            activity.window.decorView.postDelayed({
-                                if (!isScreenPinned(activity)) {
-                                    Toast.makeText(
-                                        activity,
-                                        if (isFireTablet) "Couldn't lock. Turn on Fire Settings → Security & Privacy → Screen Pinning (or App Pinning), then try again."
-                                        else "Couldn't lock. Turn on Settings → Security → App pinning, then try again.",
-                                        Toast.LENGTH_LONG,
-                                    ).show()
-                                }
-                            }, 2_000)
+                            deviceLock?.lock()
                         }) { Text("Pin now") }
                     }
                 }
@@ -465,14 +455,6 @@ fun SettingsScreen(vm: AacViewModel) {
             dismissButton = { TextButton(onClick = { confirmReset = false }) { Text("Cancel") } },
         )
     }
-}
-
-/** Amazon Fire tablets (Fire OS): settings live in different places than on other Android devices. */
-private val isFireTablet: Boolean get() = android.os.Build.MANUFACTURER.equals("Amazon", ignoreCase = true)
-
-private fun isScreenPinned(context: Context): Boolean {
-    val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return false
-    return am.lockTaskModeState != ActivityManager.LOCK_TASK_MODE_NONE
 }
 
 @Composable

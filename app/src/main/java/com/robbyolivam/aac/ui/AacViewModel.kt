@@ -40,7 +40,7 @@ import com.robbyolivam.aac.core.updateBoard
 import com.robbyolivam.aac.core.updateQuickStrip
 import com.robbyolivam.aac.data.ScanMode
 import com.robbyolivam.aac.data.Settings
-import com.robbyolivam.aac.speech.AudioOutput
+import com.robbyolivam.aac.core.platform.AudioOutput
 import java.util.UUID
 
 /** A word in the message bar, with the picture it came from. */
@@ -394,7 +394,7 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
 
     fun speakCell(cell: Cell) {
         val audio = cell.audioPath
-        if (audio != null) speaker.playFile(store.resolve(audio), speechOutput) else speak(cell.text)
+        if (audio != null) speaker.playRecording(store.resolve(audio).absolutePath, speechOutput) else speak(cell.text)
     }
 
     /** Real speech: out loud. With the private earbud on, forced to the phone speaker. */
