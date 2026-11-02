@@ -175,7 +175,12 @@ fun SettingsScreen(vm: AacViewModel) {
             Header("Voice")
             if (!ttsAvailable) {
                 Text(
-                    "No text-to-speech engine found. Install “Speech Services by Google” from the Play Store.",
+                    if (isFireTablet) {
+                        "No text-to-speech voice found. On this Fire tablet, open Settings → Keyboard & Language → Text-to-Speech " +
+                            "and make sure a voice is downloaded and chosen as the default."
+                    } else {
+                        "No text-to-speech engine found. Install “Speech Services by Google” from the Play Store."
+                    },
                     color = MaterialTheme.colorScheme.error,
                 )
             }
@@ -210,6 +215,11 @@ fun SettingsScreen(vm: AacViewModel) {
             Text(
                 "Teen and Kid make any voice sound younger. They sound most natural starting from a higher (often female) voice.",
                 style = MaterialTheme.typography.bodySmall,
+            )
+            Text(
+                if (isFireTablet) "More voices: Fire Settings → Keyboard & Language → Text-to-Speech → Download additional voices."
+                else "More voices: phone Settings → Accessibility → Text-to-speech output.",
+                fontSize = 12.sp, color = MaterialTheme.colorScheme.outline,
             )
             OutlinedButton(onClick = { vm.speak("Hello! This is how I sound.") }) { Text("Test voice") }
             ToggleSetting("Speak each word when tapped", settings.speakOnSelect) { v -> update { it.copy(speakOnSelect = v) } }
@@ -369,12 +379,24 @@ fun SettingsScreen(vm: AacViewModel) {
                         OutlinedButton(onClick = {
                             vm.screen = Screen.MAIN
                             runCatching { activity.startLockTask() }
+                            // Some devices (Fire tablets among them) only pin once pinning is
+                            // switched on in system settings. If it didn't take, say how.
+                            activity.window.decorView.postDelayed({
+                                if (!isScreenPinned(activity)) {
+                                    Toast.makeText(
+                                        activity,
+                                        if (isFireTablet) "Couldn't lock. Turn on Fire Settings → Security & Privacy → Screen Pinning (or App Pinning), then try again."
+                                        else "Couldn't lock. Turn on Settings → Security → App pinning, then try again.",
+                                        Toast.LENGTH_LONG,
+                                    ).show()
+                                }
+                            }, 2_000)
                         }) { Text("Pin now") }
                     }
                 }
             }
             Text(
-                "Tip: add the “Talk” tile to Quick Settings (swipe down twice → edit) to open this app from anywhere.",
+                "Tip: where your device allows it, add the “Talk” tile to Quick Settings (swipe down twice → edit) to open this app from anywhere.",
                 fontSize = 13.sp, color = MaterialTheme.colorScheme.outline,
             )
 
@@ -444,6 +466,9 @@ fun SettingsScreen(vm: AacViewModel) {
         )
     }
 }
+
+/** Amazon Fire tablets (Fire OS): settings live in different places than on other Android devices. */
+private val isFireTablet: Boolean get() = android.os.Build.MANUFACTURER.equals("Amazon", ignoreCase = true)
 
 private fun isScreenPinned(context: Context): Boolean {
     val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return false

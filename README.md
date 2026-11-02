@@ -113,6 +113,16 @@ The screen tests drive the real app on the JVM (Robolectric) on a Pixel-sized an
 | Tour | Spotlights now line up with their targets on real phones (they were shifted up by the status bar height) |
 | Expand my words | Shelved: the on-device Gemini feature is removed until it can be tested on a supported phone. The code is kept on the `shelved/gemini-expand-words` branch |
 
+## 0.9.0: Fire tablet
+
+| Area | Changes |
+|---|---|
+| Install | Every build of `main` publishes a plain **aac-app.apk** on the **latest** release, so phones and Fire tablets can install it straight from the browser (no zip) |
+| Fire HD 10 | Screen tests run as Android 11 (Fire OS 8) at the Fire HD 10 size (1280×800 dp) in both orientations |
+| Voices | On Fire tablets, voice help points to Fire Settings → Keyboard & Language → Text-to-Speech |
+| Lock | If "Lock to this app" doesn't take (Fire needs Screen Pinning turned on), the app says how to turn it on |
+| Layout | One label size per page (only unusually long words get smaller); bigger message words on tablets |
+
 Symbol assets are rebuilt with `scripts/build-symbols.py` (see the script header).
 
 ## Project layout
