@@ -311,9 +311,9 @@ class OpenBoardFormatTest {
         val manifest = """{"format":"open-board-0.1","root":"boards/home.obf","paths":{"boards":{"1_2":"boards/home.obf","animals":"boards/animals.obf"}}}"""
         val result = OpenBoardFormat.import(
             mapOf(
-                "manifest.json" to manifest.toByteArray(),
-                "boards/home.obf" to home.toByteArray(),
-                "boards/animals.obf" to animals.toByteArray(),
+                "manifest.json" to manifest.encodeToByteArray(),
+                "boards/home.obf" to home.encodeToByteArray(),
+                "boards/animals.obf" to animals.encodeToByteArray(),
             ),
             fallbackStrip = DefaultVocabulary.create().quickStrip,
         )
@@ -360,7 +360,7 @@ class WavTest {
 
     @Test
     fun rejectsNonWav() {
-        assertNull(Wav.parse("hello world, not audio".toByteArray()))
+        assertNull(Wav.parse("hello world, not audio".encodeToByteArray()))
         assertNull(Wav.parse(ByteArray(0)))
     }
 
