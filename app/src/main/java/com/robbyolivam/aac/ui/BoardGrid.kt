@@ -205,6 +205,9 @@ fun BoardGrid(
     }
 
     val firstFolder = board.cells.indexOfFirst { it?.action == CellAction.FOLDER }
+    // One label size for the whole page (set by its typical word), so labels look even; only
+    // unusually long words go smaller, so they never break mid-word.
+    val typicalWord = remember(board) { typicalWordLength(board) }
     Column(modifier.then(dwellModifier).padding(pad)) {
         for (row in 0 until board.rows) {
             Row(Modifier.weight(1f).fillMaxWidth()) {
@@ -223,6 +226,7 @@ fun BoardGrid(
                         onLongPress = { onLongPress(cell) },
                         modifier = Modifier.weight(1f).fillMaxHeight().then(if (index == firstFolder) Modifier.tutorialAnchor("folder") else Modifier),
                         gap = 2.dp,
+                        typicalWord = typicalWord,
                         exploring = exploring,
                         touchEnabled = !dwellOn,
                         dwellProgress = if (dwellIndex == index) ({ dwellProgress.value }) else null,
@@ -231,6 +235,13 @@ fun BoardGrid(
             }
         }
     }
+}
+
+/** The longest-word length most labels on [board] fit within (the 75th percentile). */
+fun typicalWordLength(board: Board): Int {
+    val lengths = board.cells.mapNotNull { c -> c?.label?.split(' ')?.maxOf { it.length } }.sorted()
+    if (lengths.isEmpty()) return 3
+    return lengths[(lengths.size * 3 / 4).coerceAtMost(lengths.lastIndex)]
 }
 
 fun scanRowId(row: Int) = "row-$row"
@@ -254,6 +265,8 @@ fun CellButton(
     scanned: Boolean = false,
     /** Space around the button; with [Settings.touchGaps] on, touches there still count. */
     gap: Dp = 0.dp,
+    /** Word length that sets the label size for the whole page (see [typicalWordLength]). */
+    typicalWord: Int = 3,
     /** Show buttons hidden by level or by hand (explore mode). */
     exploring: Boolean = false,
     /** False while slide-to-select handles touches for the whole board. */
@@ -372,7 +385,7 @@ fun CellButton(
                 val byHeight = if (wide) maxHeight * 0.36f else maxHeight * 0.16f
                 // Never so big that the longest word has to break mid-word.
                 val textWidth = if (wide) maxWidth - maxHeight - 8.dp else maxWidth - 4.dp
-                val longestWord = cell.label.split(' ').maxOf { it.length }.coerceAtLeast(3)
+                val longestWord = maxOf(cell.label.split(' ').maxOf { it.length }, typicalWord, 3)
                 val byWidth = textWidth / (0.62f * longestWord)
                 minOf(byHeight, byWidth).toSp().value.coerceIn(if (compact) 8f else 9.5f, 26f).sp * settings.labelScale
             }

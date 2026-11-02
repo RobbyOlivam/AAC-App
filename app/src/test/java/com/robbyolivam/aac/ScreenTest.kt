@@ -576,6 +576,7 @@ class ScreenTest {
             "Voice age", "Pronunciations", "Private earbud", "Preview on first tap", "Hold time",
             "Slide to select", "Switch scanning", "Vocabulary level", "Explore", "Copy", "Duplicate page", "crop",
             "Photo scenes", "Usage report", "pause", "Export CSV", "backup", "Open Board Format", "PDF", "Lock to this app",
+            "Fire tablet", "Apps from Unknown Sources", "Keyboard & Language",
         ).forEach { feature -> assertTrue("manual explains $feature", manual.contains(feature, ignoreCase = true)) }
     }
 

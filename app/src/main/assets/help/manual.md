@@ -101,6 +101,13 @@ Open **Settings → Edit boards** (the big card at the top). While editing:
 - **Keep screen on** and **Show over the lock screen**.
 - A **Quick Settings tile** opens the app from the notification shade.
 
+## Fire tablets
+The app runs on Amazon Fire tablets (built for the Fire HD 10, 13th generation).
+- **Install**: on the tablet, open Settings → Security & Privacy → **Apps from Unknown Sources** and allow the Silk Browser. Then open the app's **latest release** page in Silk, tap **aac-app.apk**, and install. Installing a newer one later updates the app and keeps your boards.
+- **Voices**: Fire tablets use Amazon's own voices. Choose or download them in Fire Settings → Keyboard & Language → Text-to-Speech, then pick one in the app's Settings → Voice.
+- **Kids profiles**: apps installed this way may not show up in an Amazon Kids profile. Use the app from the parent profile and **Lock to this app** to keep a child in the talker.
+- **Lock to this app**: if it doesn't lock, turn on Fire Settings → Security & Privacy → **Screen Pinning** first.
+
 ## Privacy
 - Speech, words and logs stay on the device. The app has no internet access.
 - Backups and exports only go where you save them.

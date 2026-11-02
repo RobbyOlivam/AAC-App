@@ -69,6 +69,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -406,9 +407,11 @@ private fun MessageBar(vm: AacViewModel, isScanned: (String, String) -> Boolean,
 
 @Composable
 private fun MessageChip(text: String, symbol: Symbol?, vm: AacViewModel) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 2.dp)) {
-        if (symbol != null) SymbolView(symbol, vm.media, Modifier.size(30.dp))
-        Text(text, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+    // Tablets (Fire HD 10 and up) get bigger message words so they fill the bar.
+    val large = LocalConfiguration.current.smallestScreenWidthDp >= 600
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = if (large) 4.dp else 2.dp)) {
+        if (symbol != null) SymbolView(symbol, vm.media, Modifier.size(if (large) 40.dp else 30.dp))
+        Text(text, fontSize = if (large) 20.sp else 15.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
     }
 }
 
