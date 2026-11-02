@@ -1,6 +1,6 @@
 package com.robbyolivam.aac.core
 
-import org.junit.Test
+import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -291,7 +291,7 @@ class OpenBoardFormatTest {
     @Test
     fun importsForeignBoardWithEmbeddedImage() {
         val png = byteArrayOf(1, 2, 3)
-        val b64 = java.util.Base64.getEncoder().encodeToString(png)
+        @OptIn(kotlin.io.encoding.ExperimentalEncodingApi::class) val b64 = kotlin.io.encoding.Base64.Default.encode(png)
         val home = """
             {"format":"open-board-0.1","id":"1_2","name":"Home",
              "buttons":[
@@ -337,13 +337,14 @@ class OpenBoardFormatTest {
 
 class WavTest {
     private fun wav(sampleRate: Int, samples: ShortArray, extraChunk: Boolean = false): ByteArray {
-        val out = java.io.ByteArrayOutputStream()
-        fun int16(v: Int) { out.write(v and 0xFF); out.write((v shr 8) and 0xFF) }
+        val out = mutableListOf<Byte>()
+        fun bytes(b: ByteArray) { out += b.toList() }
+        fun int16(v: Int) { out += (v and 0xFF).toByte(); out += ((v shr 8) and 0xFF).toByte() }
         fun int32(v: Int) { int16(v and 0xFFFF); int16((v shr 16) and 0xFFFF) }
-        out.write("RIFF".toByteArray()); int32(0); out.write("WAVE".toByteArray())
-        out.write("fmt ".toByteArray()); int32(16); int16(1); int16(1); int32(sampleRate); int32(sampleRate * 2); int16(2); int16(16)
-        if (extraChunk) { out.write("LIST".toByteArray()); int32(3); out.write(byteArrayOf(1, 2, 3, 0)) }
-        out.write("data".toByteArray()); int32(samples.size * 2)
+        bytes("RIFF".encodeToByteArray()); int32(0); bytes("WAVE".encodeToByteArray())
+        bytes("fmt ".encodeToByteArray()); int32(16); int16(1); int16(1); int32(sampleRate); int32(sampleRate * 2); int16(2); int16(16)
+        if (extraChunk) { bytes("LIST".encodeToByteArray()); int32(3); bytes(byteArrayOf(1, 2, 3, 0)) }
+        bytes("data".encodeToByteArray()); int32(samples.size * 2)
         samples.forEach { int16(it.toInt()) }
         return out.toByteArray()
     }
@@ -454,6 +455,14 @@ class UsageTest {
     }
 
     @Test
+    fun isoTimesMatchTheCalendar() {
+        assertEquals("1970-01-01T00:00:00Z", UsageLog.isoUtc(0))
+        assertEquals("2000-02-29T23:59:59Z", UsageLog.isoUtc(951868799000))
+        assertEquals("2026-11-02T12:33:05Z", UsageLog.isoUtc(1793622785000))
+        assertEquals("1969-12-31T23:59:59Z", UsageLog.isoUtc(-1000))
+    }
+
+    @Test
     fun csvQuotesText() {
         val csv = UsageLog.toCsv(listOf(UsageEvent(0, "say \"hi\", ok", UsageSource.MESSAGE, utterance = true)))
         assertTrue(csv.lines()[1].contains("\"say \"\"hi\"\", ok\""))
@@ -502,7 +511,8 @@ class WordWizardTest {
 
     @Test
     fun fullFolderFallsBackToOneWithRoom() {
-        fun fill(b: Board) = b.copy(cells = b.cells.map { it ?: Cell("x-${java.util.UUID.randomUUID()}", "x") })
+        var n = 0
+        fun fill(b: Board) = b.copy(cells = b.cells.map { it ?: Cell("x-${n++}", "x") })
         val bothFull = v.updateBoard("actions", ::fill).updateBoard("more-actions", ::fill)
         // Nowhere free: still the right folder, but no spot, so the wizard asks.
         assertEquals("actions", WordWizard.plan("bake", "Verb", null, bothFull).boardId)

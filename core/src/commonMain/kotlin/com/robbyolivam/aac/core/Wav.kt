@@ -40,7 +40,7 @@ object Wav {
         return null
     }
 
-    private fun ByteArray.ascii(at: Int) = String(this, at, 4, Charsets.US_ASCII)
+    private fun ByteArray.ascii(at: Int) = decodeToString(at, at + 4)
     private fun ByteArray.int16(at: Int) = (this[at].toInt() and 0xFF) or ((this[at + 1].toInt() and 0xFF) shl 8)
     private fun ByteArray.int32(at: Int) = int16(at) or (int16(at + 2) shl 16)
 }

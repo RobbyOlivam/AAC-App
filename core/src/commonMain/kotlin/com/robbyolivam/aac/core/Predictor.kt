@@ -34,7 +34,7 @@ class Predictor(learned: PredictorData = PredictorData()) {
         var prev = START
         for (w in words) {
             unigrams[w] = (unigrams[w] ?: 0.0) + 1.0
-            bigrams.getOrPut(prev) { HashMap() }.merge(w, 1.0, Double::plus)
+            bigrams.getOrPut(prev) { HashMap() }.addTo(w, 1.0)
             prev = w
         }
     }
@@ -43,8 +43,8 @@ class Predictor(learned: PredictorData = PredictorData()) {
     fun learn(text: String) {
         var prev = START
         for (w in tokenize(text)) {
-            userUnigrams.merge(w, 1, Int::plus)
-            userBigrams.getOrPut(prev) { HashMap() }.merge(w, 1, Int::plus)
+            userUnigrams.addTo(w, 1)
+            userBigrams.getOrPut(prev) { HashMap() }.addTo(w, 1)
             prev = w
         }
     }
@@ -70,7 +70,7 @@ class Predictor(learned: PredictorData = PredictorData()) {
         fun add(word: String, score: Double) {
             if (!word.startsWith(prefix)) return
             if (allowed != null && word !in allowed) return
-            scores.merge(word, score, Double::plus)
+            scores.addTo(word, score)
         }
         unigrams.forEach { (w, c) -> add(w, c * 0.01) }
         userUnigrams.forEach { (w, c) -> add(w, c * 2.0) }
@@ -126,4 +126,13 @@ class Predictor(learned: PredictorData = PredictorData()) {
             "play with me", "come here", "I want to go home", "I want to go outside",
         )
     }
+}
+
+/** Adds [amount] to the count for [key] (platform-neutral stand-in for Java's Map.merge). */
+internal fun <K> MutableMap<K, Int>.addTo(key: K, amount: Int) {
+    this[key] = (this[key] ?: 0) + amount
+}
+
+internal fun <K> MutableMap<K, Double>.addTo(key: K, amount: Double) {
+    this[key] = (this[key] ?: 0.0) + amount
 }

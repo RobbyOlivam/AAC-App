@@ -14,7 +14,8 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
-import java.util.Base64
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 
 /**
  * Open Board Format (https://www.openboardformat.org) import/export, so vocabularies can move
@@ -96,7 +97,7 @@ object OpenBoardFormat {
             }
             val path = boardPath(board.id)
             boardPaths[board.id] = path
-            files[path] = json.encodeToString(JsonObject.serializer(), obf).toByteArray()
+            files[path] = json.encodeToString(JsonObject.serializer(), obf).encodeToByteArray()
         }
         val manifest = buildJsonObject {
             put("format", FORMAT)
@@ -108,7 +109,7 @@ object OpenBoardFormat {
             put("ext_aac_phrases", boardPath(vocabulary.phrasesBoardId))
             put("ext_aac_quick_strip", boardPath(STRIP_ID))
         }
-        files["manifest.json"] = json.encodeToString(JsonObject.serializer(), manifest).toByteArray()
+        files["manifest.json"] = json.encodeToString(JsonObject.serializer(), manifest).encodeToByteArray()
         return files
     }
 
@@ -228,8 +229,11 @@ object OpenBoardFormat {
         val data = image.str("data") ?: return null
         if (data.startsWith("data:image/svg")) return null
         val base64 = data.substringAfter("base64,", missingDelimiterValue = "").ifEmpty { return null }
-        return runCatching { Base64.getDecoder().decode(base64) }.getOrNull()
+        return runCatching { decodeBase64(base64) }.getOrNull()
     }
+
+    @OptIn(ExperimentalEncodingApi::class)
+    private fun decodeBase64(text: String): ByteArray = Base64.Default.decode(text)
 
     private fun parse(bytes: ByteArray): JsonObject = json.parseToJsonElement(bytes.decodeToString()).jsonObject
 

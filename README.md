@@ -48,7 +48,7 @@ You need Android Studio (or the Android SDK with platform 35) and JDK 17+. Witho
 The screen tests drive the real app on the JVM (Robolectric) on a Pixel-sized and a tablet-sized screen, portrait and landscape. They save a screenshot of each state; CI attaches them to every build as the **screenshots** artifact.
 
 ```bash
-./gradlew :core:test                  # shared logic unit tests
+./gradlew :core:jvmTest               # shared logic unit tests (iOS: :core:iosSimulatorArm64Test on a Mac)
 ./gradlew :app:recordRoborazziDebug   # screen tests; screenshots in app/build/screenshots/
 ./gradlew :app:assembleDebug  # APK at app/build/outputs/apk/debug/
 ./gradlew :app:installDebug   # install on a connected phone (USB debugging on)
@@ -130,7 +130,8 @@ Symbol assets are rebuilt with `scripts/build-symbols.py` (see the script header
 ```
 core/  Pure Kotlin, no Android: vocabulary model (grids, photo scenes, levels), starter
        vocabulary, morphology, predictor, grammar helper, search, Open Board Format.
-       Becomes a Kotlin Multiplatform module for iOS/web.
+       Kotlin Multiplatform: builds for Android (JVM) and iOS (iosArm64,
+       iosSimulatorArm64, iosX64; compiled and tested on macOS in CI).
 app/   Android app (Jetpack Compose)
   data/    vocabulary storage (atomic JSON + undo + snapshots), settings, media, backup,
            Open Board files, PDF printing
