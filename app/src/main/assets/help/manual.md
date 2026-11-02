@@ -95,6 +95,11 @@ Open **Settings → Edit boards** (the big card at the top). While editing:
 - **Open Board Format** import and export moves boards to and from other AAC apps.
 - **Print boards (PDF)** makes a paper copy for when the device isn't available.
 
+## Updating the app
+- New versions install over the app and keep your boards, words, pictures and settings.
+- **One-time move to the official app (version 0.10):** the official app now has its own permanent signature, so it can't install over an older test version. First open Settings → **Save backup**, then uninstall the old app, install the new one, and use **Restore backup**.
+- **Test versions** are called **AAC Talk (dev)**. They install next to the real app with their own boards, so trying one never changes the boards someone relies on.
+
 ## Device and safety
 - **Protect settings**: off, hold for 1.5 seconds, or a PIN, so settings can't be changed by accident.
 - **Lock to this app** keeps the device in the talker (screen pinning).

@@ -8,6 +8,9 @@ plugins {
     alias(libs.plugins.roborazzi)
 }
 
+/** Path of the release keystore, when this build has one (see signingConfigs). */
+val releaseKey: String? = System.getenv("AAC_KEYSTORE_FILE")?.takeIf { it.isNotBlank() && file(it).exists() }
+
 android {
     namespace = "com.robbyolivam.aac"
     compileSdk = 35
@@ -16,18 +19,30 @@ android {
         applicationId = "com.robbyolivam.aac"
         minSdk = 26
         targetSdk = 35
-        versionCode = 11
-        versionName = "0.9.0"
+        versionCode = 12
+        versionName = "0.10.0"
     }
 
     signingConfigs {
-        // Shared debug key (checked in on purpose) so APKs built by CI and on any computer
-        // can update each other without uninstalling — uninstalling would wipe the user's words.
+        // Shared debug key (checked in on purpose) so test APKs built by CI and on any computer
+        // can update each other without uninstalling.
         getByName("debug") {
             storeFile = file("debug.keystore")
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
+        }
+        // The real app's key. It is never in the repository: CI gets it from GitHub secrets, and
+        // a computer from environment variables (AAC_KEYSTORE_FILE, AAC_KEYSTORE_PASSWORD,
+        // AAC_KEY_ALIAS, AAC_KEY_PASSWORD). Updates only install over an app signed with the
+        // same key, so this key must never change or be lost.
+        create("release") {
+            releaseKey?.let { key ->
+                storeFile = file(key)
+                storePassword = System.getenv("AAC_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("AAC_KEY_ALIAS") ?: "aac"
+                keyPassword = System.getenv("AAC_KEY_PASSWORD") ?: System.getenv("AAC_KEYSTORE_PASSWORD")
+            }
         }
     }
 
@@ -35,6 +50,13 @@ android {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = if (releaseKey != null) signingConfigs.getByName("release") else null
+        }
+        debug {
+            // Test builds install next to the real app ("AAC Talk (dev)") with their own boards,
+            // so trying a pull request never touches the boards someone relies on.
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
         }
     }
 
