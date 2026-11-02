@@ -84,7 +84,7 @@ class Predictor(learned: PredictorData = PredictorData()) {
         private const val START = "<s>"
 
         fun tokenize(text: String): List<String> =
-            Regex("[\\p{L}\\p{N}']+").findAll(text.lowercase()).map { it.value }.toList()
+            wordTokens(text.lowercase())
 
         private val json = Json { ignoreUnknownKeys = true }
 

@@ -583,3 +583,11 @@ class SymbolIndexTest {
         assertEquals(listOf(0x1F44D), SymbolIndex.codePoints("👍"))
     }
 }
+
+class WordsTest {
+    @Test
+    fun splitsLettersDigitsAndApostrophes() {
+        assertEquals(listOf("I'm", "café", "2", "niño"), wordTokens("I'm at the café, 2 niño!").filter { it != "at" && it != "the" })
+        assertEquals(listOf("hi", "you"), UsageEvent.wordsIn("  'Hi'... you?"))
+    }
+}

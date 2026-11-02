@@ -38,7 +38,7 @@ data class UsageEvent(
 
     companion object {
         fun wordsIn(text: String): List<String> =
-            Regex("[\\p{L}\\p{N}']+").findAll(text.lowercase()).map { it.value.trim('\'') }.filter { it.isNotEmpty() }.toList()
+            wordTokens(text.lowercase()).map { it.trim('\'') }.filter { it.isNotEmpty() }.toList()
     }
 }
 
