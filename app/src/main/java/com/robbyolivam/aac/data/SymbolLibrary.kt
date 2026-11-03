@@ -33,6 +33,8 @@ class SymbolLibrary(private val context: Context) {
     fun forEmoji(emoji: String?): String? = index.forEmoji(emoji)
 
     /** See [SymbolIndex.search]. */
+    fun exact(word: String): String? = index.exact(word)
+
     fun search(query: String, limit: Int = 60, context: List<String> = emptyList()): List<LibrarySymbol> =
         index.search(query, limit, context)
 

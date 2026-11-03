@@ -140,7 +140,8 @@ fun EditCellDialog(vm: AacViewModel, target: EditTarget) {
             symbol = Symbol(emoji = emoji.trim().ifEmpty { null }, imagePath = imagePath, libraryId = libraryId),
             type = if (action == CellAction.FOLDER) WordType.FOLDER else type,
             action = action,
-            linkTo = if (action == CellAction.FOLDER) linkTo else null,
+            // Words can open a page too (WordPower-style: "I" opens the verbs that follow it).
+            linkTo = if (action == CellAction.PHRASE) null else linkTo,
             hidden = hidden,
             audioPath = audioPath,
             level = level,
@@ -328,6 +329,14 @@ fun EditCellDialog(vm: AacViewModel, target: EditTarget) {
                             }, { Text("+ New photo scene") })
                         }
                     } else {
+                        val opens = linkTo?.let { vm.vocabulary.value.board(it) }
+                        if (action == CellAction.WORD && opens != null) {
+                            SectionTitle("Then opens")
+                            ChipRow {
+                                FilterChip(true, {}, { Text(opens.name) })
+                                FilterChip(false, { linkTo = null }, { Text("Don't open a page") })
+                            }
+                        }
                         SectionTitle("Word type (sets the color)")
                         ChipRow {
                             typeLabels.forEach { (t, name) ->

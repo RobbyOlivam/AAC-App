@@ -1,14 +1,22 @@
 package com.robbyolivam.aac.data
 
 import com.robbyolivam.aac.core.OpenBoardFormat
+import com.robbyolivam.aac.core.TouchChatFormat
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
-/** Reads and writes Open Board Format files (.obz zip or a single .obf board). */
-class OpenBoardFiles(private val store: VocabularyStore, private val media: MediaFiles) {
+/**
+ * Reads and writes board files from other AAC apps: Open Board Format (.obz zip or a single
+ * .obf board), and imports TouchChat vocabularies (.ce).
+ */
+class OpenBoardFiles(
+    private val store: VocabularyStore,
+    private val media: MediaFiles,
+    private val symbols: SymbolLibrary,
+) {
 
     fun export(output: OutputStream) {
         val files = OpenBoardFormat.export(store.vocabulary.value) { path ->
@@ -23,16 +31,29 @@ class OpenBoardFiles(private val store: VocabularyStore, private val media: Medi
         }
     }
 
-    /** Replaces the vocabulary (undoable). Returns how many pictures couldn't be brought over. */
-    fun import(input: InputStream): Int {
+    /** Replaces the vocabulary (undoable). Returns a short summary to show the person. */
+    fun import(input: InputStream): String {
         val bytes = input.readBytes()
         val isZip = bytes.size > 2 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()
         val files = if (isZip) unzip(bytes) else mapOf("board.obf" to bytes)
-        val result = OpenBoardFormat.import(files, fallbackStrip = store.vocabulary.value.quickStrip)
-        result.media.forEach { (path, data) -> store.resolve(path).also { it.parentFile?.mkdirs() }.writeBytes(data) }
+        val strip = store.vocabulary.value.quickStrip
+        if (TouchChatFormat.isTouchChat(files)) {
+            val result = TouchChatFormat.import(files, strip, symbolFor = symbols::exact)
+            save(result.media, result.vocabulary)
+            return "TouchChat vocabulary imported: ${result.pages} pages, ${result.buttons} buttons." +
+                (if (result.symbolsMissing > 0) " ${result.symbolsMissing} buttons had TouchChat pictures with no match here; they show the word." else "") +
+                " Undo in edit mode brings back your old boards."
+        }
+        val result = OpenBoardFormat.import(files, fallbackStrip = strip)
+        save(result.media, result.vocabulary)
+        return "Boards imported. Undo in edit mode brings back your old ones." +
+            if (result.skippedImages > 0) " ${result.skippedImages} online-only pictures were skipped." else ""
+    }
+
+    private fun save(files: Map<String, ByteArray>, vocabulary: com.robbyolivam.aac.core.Vocabulary) {
+        files.forEach { (path, data) -> store.resolve(path).also { it.parentFile?.mkdirs() }.writeBytes(data) }
         media.clearCache()
-        store.replace(result.vocabulary)
-        return result.skippedImages
+        store.replace(vocabulary)
     }
 
     private fun unzip(bytes: ByteArray): Map<String, ByteArray> {

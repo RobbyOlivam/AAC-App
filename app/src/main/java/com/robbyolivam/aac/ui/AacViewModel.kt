@@ -232,7 +232,9 @@ class AacViewModel(application: Application) : AndroidViewModel(application) {
                 addToken(MessageToken(cell.text, cell.type, cell.symbol, base = cell.text))
                 logWord(cell.text, boardId, index)
                 if (s.speakOnSelect) speakCell(cell)
-                afterWord(boardId)
+                // A word that opens a page (imported WordPower boards: "I" opens the verbs).
+                val next = cell.linkTo?.takeIf { v.board(it) != null }
+                if (next != null) navigate(next) else afterWord(boardId)
             }
         }
     }

@@ -93,6 +93,15 @@ Open **Settings → Edit boards** (the big card at the top). While editing:
 - **Save backup** keeps everything (words, pictures, recordings, settings) in one file; **Restore backup** brings it back.
 - **Restore an earlier version** goes back to how the boards were before.
 - **Open Board Format** import and export moves boards to and from other AAC apps.
+
+## Bringing boards from TouchChat
+You can bring a TouchChat vocabulary (including WordPower) into this app.
+- **In TouchChat** (on the iPad or iPhone): Menu → Vocab → **Choose New Vocab** → Menu → **Import/Export Vocab** → **Export and Share**. Pick the vocabulary, then **Save to Files**, AirDrop or email it. Keep ".ce" at the end of the name.
+- **In this app**: get the file onto the device, then Settings → **Import boards** and choose the **.ce** file. It replaces your boards; **Undo** in edit mode brings them back.
+- **What comes across**: every page reachable from TouchChat's home page, each button in the same place, what it says, page links, hidden buttons, button colours (as word kinds), your own photos and sounds.
+- **Words that open a page**: in WordPower, "I" opens the action words that follow it. Those words still do that here. In the button editor, **Then opens** shows the page; tap **Don't open a page** to stop it.
+- **Pictures**: TouchChat's SymbolStix pictures are licensed and aren't in the file. Buttons get a matching picture from this app's library where there is one, and show just the word otherwise. You can pick pictures in edit mode.
+- **Not brought over**: buttons that only control TouchChat (clear, delete word, back, home), because this app has its own; WordPower's changing buttons keep their normal word (use **Forms** for "am", "is", "wanted"…).
 - **Print boards (PDF)** makes a paper copy for when the device isn't available.
 
 ## Updating the app

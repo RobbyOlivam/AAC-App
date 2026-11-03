@@ -28,6 +28,12 @@ class SymbolIndex(val symbols: List<LibrarySymbol>) {
      * containing it, then tags. Within each, symbols whose tags fit [context] (the folder's topic)
      * come first; then Mulberry (made for AAC) and this app's own symbols ahead of OpenMoji.
      */
+    private val byName: Map<String, List<LibrarySymbol>> by lazy { symbols.groupBy { it.name.lowercase() } }
+
+    /** The symbol named exactly [word] (Mulberry first), or null. Fast, for importing many words. */
+    fun exact(word: String): String? =
+        byName[word.trim().lowercase()]?.minByOrNull { if (it.set == "o") 1 else 0 }?.libraryId
+
     fun search(query: String, limit: Int = 60, context: List<String> = emptyList()): List<LibrarySymbol> {
         val q = query.trim().lowercase()
         if (q.isEmpty()) return emptyList()
