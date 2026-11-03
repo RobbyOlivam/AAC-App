@@ -39,6 +39,7 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import com.robbyolivam.aac.core.Cell
 import com.robbyolivam.aac.core.CellAction
 import com.robbyolivam.aac.core.DefaultVocabulary
+import com.robbyolivam.aac.core.updateBoard
 import com.robbyolivam.aac.core.Hotspot
 import com.robbyolivam.aac.core.Symbol
 import com.robbyolivam.aac.core.WordType
@@ -276,6 +277,21 @@ class ScreenTest {
         assertEquals("want", pasted.label)
         assertTrue("pasted button has its own id", home.cells.count { it?.id == pasted.id } == 1)
         shot("phone_after_paste")
+    }
+
+    @Test
+    fun wordThatOpensAPage() {
+        // Imported WordPower boards: "want" adds the word, then opens the page that follows it.
+        launch {
+            app.vocabulary.edit { v ->
+                val food = v.boards.first { it.name == "Food" }.id
+                v.updateBoard(DefaultVocabulary.HOME) { b -> b.copy(cells = b.cells.map { c -> if (c?.label == "want") c.copy(linkTo = food) else c }) }
+            }
+        }
+        compose.onNodeWithContentDescription("want").performClick()
+        compose.waitForIdle()
+        assertTrue("word is in the message", hasText("want"))
+        assertTrue("food page is open", hasText("Back to Core", substring = true))
     }
 
     @Test
@@ -577,6 +593,7 @@ class ScreenTest {
             "Slide to select", "Switch scanning", "Vocabulary level", "Explore", "Copy", "Duplicate page", "crop",
             "Photo scenes", "Usage report", "pause", "Export CSV", "backup", "Open Board Format", "PDF", "Lock to this app",
             "Fire tablet", "Apps from Unknown Sources", "Keyboard & Language", "AAC Talk (dev)", "Restore backup",
+            "TouchChat", "Import boards", "Then opens",
         ).forEach { feature -> assertTrue("manual explains $feature", manual.contains(feature, ignoreCase = true)) }
     }
 

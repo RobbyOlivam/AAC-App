@@ -5,6 +5,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.test.assertFalse
+import kotlin.test.assertFailsWith
 
 class DefaultVocabularyTest {
     private val vocab = DefaultVocabulary.create()
@@ -589,5 +591,81 @@ class WordsTest {
     fun splitsLettersDigitsAndApostrophes() {
         assertEquals(listOf("I'm", "café", "2", "niño"), wordTokens("I'm at the café, 2 niño!").filter { it != "at" && it != "the" })
         assertEquals(listOf("hi", "you"), UsageEvent.wordsIn("  'Hi'... you?"))
+    }
+}
+
+class TouchChatTest {
+    private val strip = listOf(Cell("yes", "yes"))
+    private fun imported() = TouchChatFormat.import(TouchChatFixture.files, strip, symbolFor = { if (it == "cow") "m:cow" else null })
+
+    @Test
+    fun readsSqliteTablesIncludingOverflowAndInteriorPages() {
+        val db = SqliteReader(TouchChatFixture.files.getValue("Test.c4v"))
+        val resources = db.rows("resources")
+        assertTrue(resources.size > 150, "all rows across interior pages")
+        assertEquals((1L..resources.size.toLong()).toList(), resources.map { it["id"] as Long }.sorted(), "INTEGER PRIMARY KEY is the row id")
+        val story = db.rows("buttons").first { it["label"] == "story" }["message"] as String
+        assertTrue(story.length > 900 && story.startsWith("Once upon a time"))
+        assertTrue(db.rows("missing").isEmpty())
+    }
+
+    @Test
+    fun importsPagesButtonsAndLinks() {
+        val r = imported()
+        assertTrue(TouchChatFormat.isTouchChat(TouchChatFixture.files))
+        val v = r.vocabulary
+        assertEquals(listOf("tc-home", "tc-food", "tc-quick-phrases"), v.boards.map { it.id }, "only pages reachable from home")
+        val home = v.home
+        assertEquals("Home", home.name)
+        assertEquals(2 to 3, home.rows to home.cols)
+
+        val food = home.cells[0]!!
+        assertEquals(CellAction.FOLDER, food.action)
+        assertEquals("tc-food", food.linkTo)
+
+        val i = home.cells[1]!!
+        assertEquals("I", i.text, "a button set imports its normal button")
+        assertEquals(CellAction.WORD, i.action)
+        assertEquals("tc-food", i.linkTo, "a word that also opens a page")
+        assertEquals(WordType.PRONOUN, i.type)
+
+        assertNull(home.cells[2], "clear only controls TouchChat")
+        assertEquals(1, r.skippedControls)
+
+        val cow = home.cells[3]!!
+        assertEquals(CellAction.PHRASE, cow.action)
+        assertEquals("moo", cow.text)
+        assertNotNull(cow.audioPath)
+        assertTrue(r.media.getValue(cow.audioPath!!).decodeToString().startsWith("RIFF"))
+
+        val grandma = home.cells[4]!!
+        assertEquals("Grandma Jo", grandma.label)
+        assertTrue(r.media.getValue(grandma.symbol.imagePath!!).copyOfRange(1, 4).decodeToString() == "PNG", "own picture comes across")
+
+        assertTrue(home.cells[5]!!.hidden)
+
+        val foodPage = v.board("tc-food")!!
+        assertEquals("Food", foodPage.name)
+        val apple = foodPage.cells[0]!!
+        assertEquals(WordType.NOUN, apple.type, "known words keep this app's word type")
+        val story = foodPage.cells[1]!!
+        assertEquals(CellAction.PHRASE, story.action)
+        assertEquals(WordType.NEGATION, story.type, "red button")
+        assertEquals(strip, v.quickStrip)
+        assertEquals(2, r.pages)
+        assertEquals(7, r.buttons)
+    }
+
+    @Test
+    fun colourAndNameHelpers() {
+        assertEquals(0xFFFF6F, TouchChatFormat.bgrToRgb(0x6FFFFF))
+        assertEquals("I you", TouchChatFormat.cleanName(".Basic60 I you"))
+        assertEquals("KB-QWERTY", TouchChatFormat.cleanName("._KB-QWERTY"))
+    }
+
+    @Test
+    fun rejectsOtherFiles() {
+        assertFalse(TouchChatFormat.isTouchChat(mapOf("board.obf" to ByteArray(1))))
+        assertFailsWith<IllegalArgumentException> { SqliteReader("not a database at all, really not one".encodeToByteArray().copyOf(200)) }
     }
 }

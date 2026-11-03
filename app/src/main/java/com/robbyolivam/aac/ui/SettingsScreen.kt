@@ -115,17 +115,9 @@ fun SettingsScreen(vm: AacViewModel) {
     val openBoardImport = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch {
             val result = withContext(Dispatchers.IO) {
-                runCatching { context.contentResolver.openInputStream(uri)?.use { vm.openBoard.import(it) } ?: 0 }
+                runCatching { context.contentResolver.openInputStream(uri)?.use { vm.openBoard.import(it) } ?: error("unreadable") }
             }
-            toast(
-                result.fold(
-                    onSuccess = { skipped ->
-                        "Boards imported. Undo in edit mode brings back your old ones." +
-                            if (skipped > 0) " $skipped online-only pictures were skipped." else ""
-                    },
-                    onFailure = { "That file isn't an Open Board (.obz / .obf) file" },
-                ),
-            )
+            toast(result.getOrElse { "That file isn't a board file this app can read (.obz, .obf or TouchChat .ce)" })
         }
     }
     val pdfExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
@@ -403,10 +395,10 @@ fun SettingsScreen(vm: AacViewModel) {
             Header("Share with other AAC apps & print")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { openBoardExport.launch("aac-boards.obz") }) { Text("Export .obz") }
-                OutlinedButton(onClick = { openBoardImport.launch(arrayOf("*/*")) }) { Text("Import .obz / .obf") }
+                OutlinedButton(onClick = { openBoardImport.launch(arrayOf("*/*")) }) { Text("Import boards") }
             }
             Text(
-                "Open Board Format works with CoughDrop, Cboard and other apps. Importing replaces your boards (Undo brings them back).",
+                "Export uses Open Board Format (.obz), which CoughDrop, Cboard and other apps read. Import reads .obz and .obf files, and TouchChat vocabularies (.ce). Importing replaces your boards (Undo brings them back).",
                 fontSize = 13.sp, color = MaterialTheme.colorScheme.outline,
             )
             OutlinedButton(onClick = { pdfExport.launch("aac-boards.pdf") }) { Text("Print boards (PDF)") }

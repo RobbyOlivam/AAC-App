@@ -47,8 +47,8 @@ class AacApplication : Application() {
         speaker = Speaker(this)
         recorder = AudioRecorder(this)
         backup = BackupManager(vocabulary, settings, media)
-        openBoard = OpenBoardFiles(vocabulary, media)
         symbols = SymbolLibrary(this)
+        openBoard = OpenBoardFiles(vocabulary, media, symbols)
         pdf = PdfExporter(vocabulary, symbols)
         usage = UsageStore(this).also { it.prune() }
     }
