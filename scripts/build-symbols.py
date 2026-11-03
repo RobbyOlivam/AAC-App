@@ -73,7 +73,7 @@ shutil.copy(os.path.join(mulberry, "LICENSE.txt"), os.path.join(assets, "LICENSE
 shutil.copy(os.path.join(openmoji, "LICENSE.txt"), os.path.join(assets, "LICENSE-openmoji.txt"))
 
 # ---- Starter vocabulary mapping ------------------------------------------------------------
-vocab_src = open(os.path.join(ROOT, "core/src/main/kotlin/com/robbyolivam/aac/core/DefaultVocabulary.kt"), encoding="utf-8").read()
+vocab_src = open(os.path.join(ROOT, "core/src/commonMain/kotlin/com/robbyolivam/aac/core/DefaultVocabulary.kt"), encoding="utf-8").read()
 
 # Hand-picked symbols where the automatic match would be wrong or missing (word -> Mulberry name).
 OVERRIDES = {
@@ -169,7 +169,7 @@ for cid, (label, wtype, emoji) in sorted(mapping.items()):
         misses.append(cid)
 
 # Remember what each cell used before, so the app can replace a picture the person never changed.
-out = os.path.join(ROOT, "core/src/main/kotlin/com/robbyolivam/aac/core/DefaultSymbols.kt")
+out = os.path.join(ROOT, "core/src/commonMain/kotlin/com/robbyolivam/aac/core/DefaultSymbols.kt")
 previous, replaced = {}, {}
 if os.path.exists(out):
     src = open(out, encoding="utf-8").read()

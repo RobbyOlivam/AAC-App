@@ -22,8 +22,8 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Unit tests (shared core)
-        run: ./gradlew :core:test --stacktrace
+      - name: Unit tests (shared core, JVM)
+        run: ./gradlew :core:jvmTest --stacktrace
 
       - name: Screen tests (Robolectric + screenshots)
         run: ./gradlew :app:recordRoborazziDebug --stacktrace
@@ -40,21 +40,54 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: aac-app-debug-apk
+          name: aac-app-dev-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
-      # Tablets (Fire's Silk browser) can't install from the zipped artifact above, so every
-      # build of main also replaces the "latest" release with the plain APK.
-      - name: Publish APK to the "latest" release
+      # The real app: signed with the release key from the repository's secrets
+      # (AAC_KEYSTORE_BASE64, AAC_KEYSTORE_PASSWORD, AAC_KEY_ALIAS). Phones and Fire tablets
+      # install it from the "latest" release (the zipped artifacts can't be installed directly).
+      - name: Build and publish the release APK
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
+          AAC_KEYSTORE_BASE64: ${{ secrets.AAC_KEYSTORE_BASE64 }}
+          AAC_KEYSTORE_PASSWORD: ${{ secrets.AAC_KEYSTORE_PASSWORD }}
+          AAC_KEY_ALIAS: ${{ secrets.AAC_KEY_ALIAS }}
         run: |
+          if [ -z "$AAC_KEYSTORE_BASE64" ]; then
+            echo "::warning::No release key in the repository secrets, so no release APK was published."
+            exit 0
+          fi
+          echo "$AAC_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/aac-release.jks"
+          export AAC_KEYSTORE_FILE="$RUNNER_TEMP/aac-release.jks"
+          ./gradlew :app:assembleRelease --stacktrace
+          rm -f "$AAC_KEYSTORE_FILE"
           version=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts)
-          cp app/build/outputs/apk/debug/app-debug.apk aac-app.apk
+          cp app/build/outputs/apk/release/app-release.apk aac-app.apk
           gh release delete latest --yes --cleanup-tag || true
           gh release create latest aac-app.apk \
             --title "Latest build ($version)" \
             --notes "Built from ${GITHUB_SHA::7} on main. On a phone or Fire tablet, tap aac-app.apk to download and install it (it updates the app in place; your boards stay)." \
             --target "$GITHUB_SHA" --prerelease
+
+  # The shared core also builds for iPad/iPhone. Apple's toolchain only runs on macOS, so this
+  # job compiles it for iOS and runs the same core tests on the iOS simulator.
+  ios-core:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Core tests on the iOS simulator
+        run: ./gradlew :core:iosSimulatorArm64Test --stacktrace
+
+      - name: Core for iPad/iPhone devices
+        run: ./gradlew :core:compileKotlinIosArm64 --stacktrace

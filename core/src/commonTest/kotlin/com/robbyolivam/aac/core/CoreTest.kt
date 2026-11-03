@@ -1,6 +1,6 @@
 package com.robbyolivam.aac.core
 
-import org.junit.Test
+import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -291,7 +291,7 @@ class OpenBoardFormatTest {
     @Test
     fun importsForeignBoardWithEmbeddedImage() {
         val png = byteArrayOf(1, 2, 3)
-        val b64 = java.util.Base64.getEncoder().encodeToString(png)
+        @OptIn(kotlin.io.encoding.ExperimentalEncodingApi::class) val b64 = kotlin.io.encoding.Base64.Default.encode(png)
         val home = """
             {"format":"open-board-0.1","id":"1_2","name":"Home",
              "buttons":[
@@ -311,9 +311,9 @@ class OpenBoardFormatTest {
         val manifest = """{"format":"open-board-0.1","root":"boards/home.obf","paths":{"boards":{"1_2":"boards/home.obf","animals":"boards/animals.obf"}}}"""
         val result = OpenBoardFormat.import(
             mapOf(
-                "manifest.json" to manifest.toByteArray(),
-                "boards/home.obf" to home.toByteArray(),
-                "boards/animals.obf" to animals.toByteArray(),
+                "manifest.json" to manifest.encodeToByteArray(),
+                "boards/home.obf" to home.encodeToByteArray(),
+                "boards/animals.obf" to animals.encodeToByteArray(),
             ),
             fallbackStrip = DefaultVocabulary.create().quickStrip,
         )
@@ -337,13 +337,14 @@ class OpenBoardFormatTest {
 
 class WavTest {
     private fun wav(sampleRate: Int, samples: ShortArray, extraChunk: Boolean = false): ByteArray {
-        val out = java.io.ByteArrayOutputStream()
-        fun int16(v: Int) { out.write(v and 0xFF); out.write((v shr 8) and 0xFF) }
+        val out = mutableListOf<Byte>()
+        fun bytes(b: ByteArray) { out += b.toList() }
+        fun int16(v: Int) { out += (v and 0xFF).toByte(); out += ((v shr 8) and 0xFF).toByte() }
         fun int32(v: Int) { int16(v and 0xFFFF); int16((v shr 16) and 0xFFFF) }
-        out.write("RIFF".toByteArray()); int32(0); out.write("WAVE".toByteArray())
-        out.write("fmt ".toByteArray()); int32(16); int16(1); int16(1); int32(sampleRate); int32(sampleRate * 2); int16(2); int16(16)
-        if (extraChunk) { out.write("LIST".toByteArray()); int32(3); out.write(byteArrayOf(1, 2, 3, 0)) }
-        out.write("data".toByteArray()); int32(samples.size * 2)
+        bytes("RIFF".encodeToByteArray()); int32(0); bytes("WAVE".encodeToByteArray())
+        bytes("fmt ".encodeToByteArray()); int32(16); int16(1); int16(1); int32(sampleRate); int32(sampleRate * 2); int16(2); int16(16)
+        if (extraChunk) { bytes("LIST".encodeToByteArray()); int32(3); bytes(byteArrayOf(1, 2, 3, 0)) }
+        bytes("data".encodeToByteArray()); int32(samples.size * 2)
         samples.forEach { int16(it.toInt()) }
         return out.toByteArray()
     }
@@ -359,7 +360,7 @@ class WavTest {
 
     @Test
     fun rejectsNonWav() {
-        assertNull(Wav.parse("hello world, not audio".toByteArray()))
+        assertNull(Wav.parse("hello world, not audio".encodeToByteArray()))
         assertNull(Wav.parse(ByteArray(0)))
     }
 
@@ -454,6 +455,14 @@ class UsageTest {
     }
 
     @Test
+    fun isoTimesMatchTheCalendar() {
+        assertEquals("1970-01-01T00:00:00Z", UsageLog.isoUtc(0))
+        assertEquals("2000-02-29T23:59:59Z", UsageLog.isoUtc(951868799000))
+        assertEquals("2026-11-02T12:33:05Z", UsageLog.isoUtc(1793622785000))
+        assertEquals("1969-12-31T23:59:59Z", UsageLog.isoUtc(-1000))
+    }
+
+    @Test
     fun csvQuotesText() {
         val csv = UsageLog.toCsv(listOf(UsageEvent(0, "say \"hi\", ok", UsageSource.MESSAGE, utterance = true)))
         assertTrue(csv.lines()[1].contains("\"say \"\"hi\"\", ok\""))
@@ -502,7 +511,8 @@ class WordWizardTest {
 
     @Test
     fun fullFolderFallsBackToOneWithRoom() {
-        fun fill(b: Board) = b.copy(cells = b.cells.map { it ?: Cell("x-${java.util.UUID.randomUUID()}", "x") })
+        var n = 0
+        fun fill(b: Board) = b.copy(cells = b.cells.map { it ?: Cell("x-${n++}", "x") })
         val bothFull = v.updateBoard("actions", ::fill).updateBoard("more-actions", ::fill)
         // Nowhere free: still the right folder, but no spot, so the wizard asks.
         assertEquals("actions", WordWizard.plan("bake", "Verb", null, bothFull).boardId)
@@ -536,5 +546,48 @@ class SymbolContextTest {
         assertEquals("c:tablet", migrated.symbolOf("things", "tablet"))
         assertEquals("m:1111", migrated.symbolOf("body", "nails"))
         assertEquals(Vocabulary.CURRENT_VERSION, migrated.version)
+    }
+}
+
+class SymbolIndexTest {
+    private val index = SymbolIndex.parse(
+        listOf(
+            "m\t1\ttablet\tNoun\tclinic health Healthcare Medical items",
+            "c\ttablet\ttablet\tNoun\tipad device Electrical Computer",
+            "o\t1F4F1\tmobile phone\t\tphone cell",
+            "o\t2764-FE0F\tred heart\t\tlove",
+            "o\t1F44D\tthumbs up\t\tyes",
+            "bad line",
+        ).joinToString("\n"),
+    )
+
+    @Test
+    fun parsesAndSkipsBadLines() {
+        assertEquals(5, index.symbols.size)
+        assertTrue(index.contains("c:tablet"))
+    }
+
+    @Test
+    fun searchPrefersTheFoldersTopic() {
+        assertEquals("c:tablet", index.search("tablet", context = listOf("computer"))[0].libraryId)
+        assertEquals("m:1", index.search("tablet", context = listOf("medical"))[0].libraryId)
+        // With no folder topic, Mulberry/custom symbols come before OpenMoji.
+        assertTrue(index.search("phone").all { it.set == "o" })
+    }
+
+    @Test
+    fun emojiMapToOpenMoji() {
+        assertEquals("o:1F44D", index.forEmoji("👍"))
+        assertEquals("o:2764-FE0F", index.forEmoji("❤️"))
+        assertNull(index.forEmoji("🦄"))
+        assertEquals(listOf(0x1F44D), SymbolIndex.codePoints("👍"))
+    }
+}
+
+class WordsTest {
+    @Test
+    fun splitsLettersDigitsAndApostrophes() {
+        assertEquals(listOf("I'm", "café", "2", "niño"), wordTokens("I'm at the café, 2 niño!").filter { it != "at" && it != "the" })
+        assertEquals(listOf("hi", "you"), UsageEvent.wordsIn("  'Hi'... you?"))
     }
 }

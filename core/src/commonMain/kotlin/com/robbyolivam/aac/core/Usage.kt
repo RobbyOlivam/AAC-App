@@ -38,7 +38,7 @@ data class UsageEvent(
 
     companion object {
         fun wordsIn(text: String): List<String> =
-            Regex("[\\p{L}\\p{N}']+").findAll(text.lowercase()).map { it.value.trim('\'') }.filter { it.isNotEmpty() }.toList()
+            wordTokens(text.lowercase()).map { it.trim('\'') }.filter { it.isNotEmpty() }.toList()
     }
 }
 
@@ -80,7 +80,7 @@ object UsageLog {
     fun decode(line: String): UsageEvent? =
         if (line.isBlank()) null else runCatching { json.decodeFromString(UsageEvent.serializer(), line) }.getOrNull()
 
-    fun day(time: Long, utcOffsetMillis: Long): Long = Math.floorDiv(time + utcOffsetMillis, DAY)
+    fun day(time: Long, utcOffsetMillis: Long): Long = (time + utcOffsetMillis).floorDiv(DAY)
 
     /**
      * Builds the report for events from [from] (inclusive) to [to] (exclusive). Events before
@@ -96,7 +96,7 @@ object UsageLog {
 
         val usedBefore = events.filter { it.time < from && !it.utterance }.flatMap { it.words }.toSet()
         val firstUse = LinkedHashMap<String, Long>()
-        wordEvents.sortedBy { it.time }.forEach { e -> e.words.forEach { w -> firstUse.putIfAbsent(w, e.time) } }
+        wordEvents.sortedBy { it.time }.forEach { e -> e.words.forEach { w -> firstUse.getOrPut(w) { e.time } } }
 
         val perDayCounts = wordEvents.groupBy { day(it.time, utcOffsetMillis) }.mapValues { (_, list) -> list.sumOf { it.words.size } }
         val firstDay = day(from, utcOffsetMillis)
@@ -105,7 +105,7 @@ object UsageLog {
 
         val taps = HashMap<Pair<String, Int>, Int>()
         wordEvents.forEach { e ->
-            if (e.boardId != null && e.index != null) taps.merge(e.boardId to e.index, 1, Int::plus)
+            if (e.boardId != null && e.index != null) taps.addTo(e.boardId to e.index, 1)
         }
         val core = wordEvents.filter { it.source == UsageSource.CORE }.sumOf { it.words.size }
 
@@ -126,11 +126,30 @@ object UsageLog {
         )
     }
 
+    /** "2026-11-02T12:33:05Z": UTC time in ISO-8601, to the second (no platform date library needed). */
+    fun isoUtc(millis: Long): String {
+        val days = millis.floorDiv(DAY)
+        val secondOfDay = (millis - days * DAY) / 1000
+        // Civil date from days since 1970-01-01 (Howard Hinnant's algorithm).
+        val z = days + 719468
+        val era = z.floorDiv(146097L)
+        val doe = z - era * 146097
+        val yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365
+        val doy = doe - (365 * yoe + yoe / 4 - yoe / 100)
+        val mp = (5 * doy + 2) / 153
+        val day = doy - (153 * mp + 2) / 5 + 1
+        val month = if (mp < 10) mp + 3 else mp - 9
+        val year = yoe + era * 400 + if (month <= 2) 1 else 0
+        fun two(n: Long) = n.toString().padStart(2, '0')
+        return "${year.toString().padStart(4, '0')}-${two(month)}-${two(day)}T" +
+            "${two(secondOfDay / 3600)}:${two(secondOfDay / 60 % 60)}:${two(secondOfDay % 60)}Z"
+    }
+
     /** Spreadsheet-friendly export: one row per event. Times are ISO-8601 in UTC. */
     fun toCsv(events: List<UsageEvent>): String = buildString {
         appendLine("time_utc,kind,source,text,words,page,position")
         events.forEach { e ->
-            val time = java.time.Instant.ofEpochMilli(e.time).toString()
+            val time = isoUtc(e.time)
             val kind = if (e.utterance) "spoken" else "word"
             val text = "\"" + e.text.replace("\"", "\"\"") + "\""
             appendLine("$time,$kind,${e.source.name.lowercase()},$text,${e.words.size},${e.boardId.orEmpty()},${e.index?.toString().orEmpty()}")

@@ -10,6 +10,7 @@ import com.robbyolivam.aac.data.SymbolLibrary
 import com.robbyolivam.aac.data.UsageStore
 import com.robbyolivam.aac.data.VocabularyStore
 import com.robbyolivam.aac.speech.AudioRecorder
+import com.robbyolivam.aac.core.platform.SpeechOutput
 import com.robbyolivam.aac.speech.Speaker
 import java.io.File
 
@@ -21,7 +22,8 @@ class AacApplication : Application() {
         private set
     lateinit var media: MediaFiles
         private set
-    lateinit var speaker: Speaker
+    /** Speech and audio, behind the shared interface the iOS app implements too. */
+    lateinit var speaker: SpeechOutput
         private set
     lateinit var recorder: AudioRecorder
         private set

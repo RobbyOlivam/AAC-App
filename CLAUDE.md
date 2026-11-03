@@ -12,5 +12,5 @@
   bump `Vocabulary.CURRENT_VERSION` with a migration when existing boards should change.
 - **Offline and private:** the app has no internet permission. Don't add network features to
   speech or logging.
-- Tests: `./gradlew :core:test :app:recordRoborazziDebug` (screenshots land in
+- Tests: `./gradlew :core:jvmTest :app:recordRoborazziDebug` (screenshots land in
   `app/build/screenshots/`). AlertDialog-based popups hang Robolectric; prefer `Dialog`.

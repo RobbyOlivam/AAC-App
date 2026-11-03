@@ -354,7 +354,7 @@ fun EditCellDialog(vm: AacViewModel, target: EditTarget) {
                                     if (granted) startRecording() else micPermission.launch(Manifest.permission.RECORD_AUDIO)
                                 }) { Icon(Icons.Default.Mic, null); Text(if (audioPath == null) "Record" else "Re-record") }
                                 if (audioPath != null) {
-                                    OutlinedButton(onClick = { vm.speaker.playFile(vm.store.resolve(audioPath!!)) }) {
+                                    OutlinedButton(onClick = { vm.speaker.playRecording(vm.store.resolve(audioPath!!).absolutePath) }) {
                                         Icon(Icons.Default.PlayArrow, null); Text("Play")
                                     }
                                     TextButton(onClick = { audioPath = null }) { Text("Use voice instead") }

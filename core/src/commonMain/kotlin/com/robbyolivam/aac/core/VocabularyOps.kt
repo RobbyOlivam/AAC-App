@@ -109,7 +109,14 @@ fun Vocabulary.allWordCells(level: Int = Cell.MAX_LEVEL): List<Cell> =
 fun Vocabulary.applyPronunciations(text: String): String {
     if (pronunciations.isEmpty()) return text
     val lookup = pronunciations.mapKeys { it.key.lowercase() }
-    return Regex("[\\p{L}\\p{N}']+").replace(text) { m -> lookup[m.value.lowercase()] ?: m.value }
+    val out = StringBuilder()
+    var last = 0
+    for (r in wordRanges(text)) {
+        val word = text.substring(r)
+        out.append(text, last, r.first).append(lookup[word.lowercase()] ?: word)
+        last = r.last + 1
+    }
+    return out.append(text, last, text.length).toString()
 }
 
 /** The expansion for a typed shortcut (case-insensitive), or null if [word] isn't one. */

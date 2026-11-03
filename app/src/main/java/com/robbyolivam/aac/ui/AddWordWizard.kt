@@ -53,7 +53,7 @@ import com.robbyolivam.aac.core.Symbol
 import com.robbyolivam.aac.core.WordType
 import com.robbyolivam.aac.core.WordWizard
 import com.robbyolivam.aac.core.findWord
-import com.robbyolivam.aac.data.LibrarySymbol
+import com.robbyolivam.aac.core.LibrarySymbol
 import com.robbyolivam.aac.ui.theme.wordColor
 
 /** Kinds of word offered in the wizard, in plain language. The kind sets the button color. */
