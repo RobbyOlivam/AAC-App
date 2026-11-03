@@ -9,7 +9,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
-import com.robbyolivam.aac.data.SettingsLock
+import com.robbyolivam.aac.core.SettingsLock
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test

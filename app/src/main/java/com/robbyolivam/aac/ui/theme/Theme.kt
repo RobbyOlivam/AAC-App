@@ -8,7 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import com.robbyolivam.aac.core.WordType
 import com.robbyolivam.aac.core.fitzgeraldRgb
-import com.robbyolivam.aac.data.ThemeMode
+import com.robbyolivam.aac.core.ThemeMode
 
 private val Teal = Color(0xFF2E7D6B)
 

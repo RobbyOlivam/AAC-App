@@ -1,4 +1,4 @@
-name: Android build
+name: Build
 
 on:
   push:
@@ -91,3 +91,39 @@ jobs:
 
       - name: Core for iPad/iPhone devices
         run: ./gradlew :core:compileKotlinIosArm64 --stacktrace
+
+  # The web app (installable on iPads from Safari): tests of the shared screens' logic, then
+  # the production build. The built site is the "aac-web" artifact.
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Yarn (the web build uses the machine's Node.js and Yarn)
+        run: npm install -g yarn@1.22.22
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Shared screen logic tests (JVM)
+        run: ./gradlew :shared-ui:jvmTest --stacktrace
+
+      - name: Build the web app
+        run: ./gradlew :web:wasmJsBrowserDistribution --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aac-web
+          path: |
+            web/build/dist/wasmJs/productionExecutable/
+            !web/build/dist/wasmJs/productionExecutable/*.map
+          if-no-files-found: error

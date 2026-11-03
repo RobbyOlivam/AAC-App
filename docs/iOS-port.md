@@ -2,6 +2,19 @@
 
 Target: the family's iPads (Griffin's current AAC device runs TouchChat), then iPhone.
 
+## Now: the web app (no Mac or Apple Developer account needed)
+
+While the native app waits for an Apple Developer account, iPads run the **web app** (`web/`):
+Compose Multiplatform compiled to WebAssembly, installed from Safari with "Add to Home
+Screen", offline through a service worker. Its screens live in `shared-ui` (common code), so
+they are the same screens the native iPad/iPhone app will host (`ComposeUIViewController`),
+and the Android app can move onto them screen by screen. Platform services for the web are in
+`web/.../WebPlatform.kt` and `platform.js` (IndexedDB storage, Web Speech, file pick/save).
+
+Shared since the web app: `Settings` (moved to core), `Zip` (read/write in plain Kotlin, so
+iOS needs no zip library), `SqliteReader` and the TouchChat import, the `Talker` state holder
+and its screens.
+
 ## What is already shared
 
 `core/` is a Kotlin Multiplatform module that builds for Android and iOS (`iosArm64`,
@@ -41,8 +54,9 @@ tests on the iOS simulator. Everything that decides *what* the app does lives th
 
 ## Order of work
 
-1. Move storage and settings into `core` (expect/actual files), keeping the same file formats.
-2. Create the shared UI module (Compose Multiplatform) and move screens over, Android first.
+1. Done: settings in `core`; `shared-ui` with the talker screens; the web app.
+2. Grow `shared-ui` to the Android app's features (editing, forms, predictions, keyboard,
+   scanning, usage log), then switch the Android app to it screen by screen.
 3. Add the iOS app (Xcode project hosting the shared UI) and implement `SpeechOutput` and `DeviceLock`.
 4. Install on the iPads through TestFlight. That needs an Apple Developer account and the builds
    are signed on macOS (CI can do this with the signing certificate in repository secrets).

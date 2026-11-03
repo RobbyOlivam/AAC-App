@@ -38,8 +38,8 @@ import com.robbyolivam.aac.core.search
 import com.robbyolivam.aac.core.setCell
 import com.robbyolivam.aac.core.updateBoard
 import com.robbyolivam.aac.core.updateQuickStrip
-import com.robbyolivam.aac.data.ScanMode
-import com.robbyolivam.aac.data.Settings
+import com.robbyolivam.aac.core.ScanMode
+import com.robbyolivam.aac.core.Settings
 import com.robbyolivam.aac.core.platform.AudioOutput
 import java.util.UUID
 

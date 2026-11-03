@@ -25,7 +25,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.robbyolivam.aac.data.KeyboardLayout
+import com.robbyolivam.aac.core.KeyboardLayout
 
 private val qwerty = listOf("qwertyuiop", "asdfghjkl'", "zxcvbnm,.?")
 private val abc = listOf("abcdefghi", "jklmnopqr", "stuvwxyz'", "?!.,")
