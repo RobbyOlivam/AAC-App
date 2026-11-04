@@ -122,6 +122,14 @@ The app runs on Amazon Fire tablets (built for the Fire HD 10, 13th generation).
 - **Kids profiles**: apps installed this way may not show up in an Amazon Kids profile. Use the app from the parent profile and **Lock to this app** to keep a child in the talker.
 - **Lock to this app**: if it doesn't lock, turn on Fire Settings → Security & Privacy → **Screen Pinning** first.
 
+## iPad (web app)
+A version of the talker for iPads and iPhones runs in Safari and installs like an app. It is an early version: talking, folders, the quick strip, voices and importing boards work; editing boards is still Android-only.
+- **Install**: open the app's web address in Safari, tap **Share**, then **Add to Home Screen**. It then opens full screen with its own icon and **works offline**. Updates arrive by themselves the next time it opens with internet.
+- **Bring boards over**: in TouchChat, export the vocabulary and **Save to Files**. In the web app, hold **Settings**, tap **Import boards** and choose the .ce file. A backup made on Android (**Save backup**) imports the same way, and a backup made on the iPad restores on Android.
+- **Voices**: it uses the iPad's own voices. Better ones can be downloaded in iPad Settings → Accessibility → **Spoken Content** → Voices.
+- **Keep someone in the talker**: use **Guided Access** (iPad Settings → Accessibility → Guided Access; triple-click the top button to start).
+- **Not yet on iPad**: editing buttons, word forms, predictions, the keyboard, switch scanning, the usage log, and the private earbud option. Voice age (Teen, Kid) is approximated with pitch.
+
 ## Privacy
 - Speech, words and logs stay on the device. The app has no internet access.
 - Backups and exports only go where you save them.

@@ -25,7 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.robbyolivam.aac.data.OrientationMode
+import com.robbyolivam.aac.core.OrientationMode
 import com.robbyolivam.aac.ui.AacViewModel
 import com.robbyolivam.aac.ui.CommunicationScreen
 import com.robbyolivam.aac.ui.LocalSymbolLibrary

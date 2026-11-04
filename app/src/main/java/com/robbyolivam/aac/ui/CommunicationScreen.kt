@@ -86,9 +86,9 @@ import com.robbyolivam.aac.core.Tone
 import com.robbyolivam.aac.core.Cell
 import com.robbyolivam.aac.core.Symbol
 import com.robbyolivam.aac.core.Vocabulary
-import com.robbyolivam.aac.data.ScanMode
-import com.robbyolivam.aac.data.Settings
-import com.robbyolivam.aac.data.SettingsLock
+import com.robbyolivam.aac.core.ScanMode
+import com.robbyolivam.aac.core.Settings
+import com.robbyolivam.aac.core.SettingsLock
 import com.robbyolivam.aac.ui.theme.OnWordColor
 import com.robbyolivam.aac.ui.theme.wordColor
 

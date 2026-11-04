@@ -4,8 +4,8 @@ import android.view.KeyEvent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.robbyolivam.aac.data.ScanMode
-import com.robbyolivam.aac.data.Settings
+import com.robbyolivam.aac.core.ScanMode
+import com.robbyolivam.aac.core.Settings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay

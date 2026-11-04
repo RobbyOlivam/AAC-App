@@ -32,6 +32,20 @@ An Android-first AAC (augmentative and alternative communication) app. It works 
 | Sharing | Open Board Format **.obz / .obf** import and export (CoughDrop, Cboard and others), and **print all boards to PDF** as a paper backup |
 | Device | "Lock to this app" (screen pinning) so a child stays in the talker |
 
+## iPad web app (0.12.0)
+
+A first version of the talker for iPads runs in Safari and installs from the Share menu ("Add to Home Screen"): full screen, offline, no App Store or developer account. It shares its logic with the Android app (`core`) and its screens are Compose Multiplatform (`shared-ui`), so the same code can later become the native iPad/iPhone and Android screens.
+
+| Area | Features |
+|---|---|
+| Talk | The boards with symbols and word colours, message bar (speak, delete, clear), folders, words that open a page, quick strip, Back/Home bar of fixed height |
+| Boards in and out | Import a TouchChat vocabulary (.ce), a backup from Android or another iPad (.zip), or Open Board files; save a backup (same layout as Android's); go back to the previous boards |
+| Voice | The iPad's own voices (speed, pitch, volume, voice age by pitch); recorded sounds from imported boards |
+| Settings | Protected by a hold; voice, speak each word, return home after a folder word, labels, high contrast, theme |
+| Offline | A service worker keeps the app and all 5,300 symbols on the device; boards, settings and pictures live in the browser's private storage |
+
+Build: `./gradlew :web:wasmJsBrowserDistribution` (needs Node.js and Yarn); CI builds the **aac-web** artifact. Not yet in the web app: editing, word forms, predictions, keyboard, scanning, usage log.
+
 ## Install on your Pixel (no Android Studio needed)
 
 1. Open the repo's **Actions** tab → **Android build** → the latest green run (in Chrome, signed in to GitHub).
@@ -49,6 +63,7 @@ The screen tests drive the real app on the JVM (Robolectric) on a Pixel-sized an
 
 ```bash
 ./gradlew :core:jvmTest               # shared logic unit tests (iOS: :core:iosSimulatorArm64Test on a Mac)
+./gradlew :shared-ui:jvmTest          # shared screen logic (the web app's talker)
 ./gradlew :app:recordRoborazziDebug   # screen tests; screenshots in app/build/screenshots/
 ./gradlew :app:assembleDebug  # APK at app/build/outputs/apk/debug/
 ./gradlew :app:installDebug   # install on a connected phone (USB debugging on)

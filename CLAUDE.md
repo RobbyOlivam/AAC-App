@@ -12,5 +12,15 @@
   bump `Vocabulary.CURRENT_VERSION` with a migration when existing boards should change.
 - **Offline and private:** the app has no internet permission. Don't add network features to
   speech or logging.
-- Tests: `./gradlew :core:jvmTest :app:recordRoborazziDebug` (screenshots land in
+- **Modules:** `core` (shared logic, Kotlin Multiplatform: JVM/Android, iOS, web), `shared-ui`
+  (Compose Multiplatform screens: the web app today, the iPad/iPhone and Android apps as they
+  move over), `web` (the installable web app for iPads), `app` (Android). New logic goes in
+  `core`; new screens should be written so they can live in `shared-ui`.
+- **Web app:** keep it offline-first: everything it needs ships with it (symbols, fonts) and
+  the service worker (`web/src/wasmJsMain/resources/sw.js`) keeps it on the device. Bump the
+  cache name there when cached files change shape.
+- Tests: `./gradlew :core:jvmTest :shared-ui:jvmTest :app:recordRoborazziDebug` (screenshots land in
   `app/build/screenshots/`). AlertDialog-based popups hang Robolectric; prefer `Dialog`.
+  Web app: `./gradlew :web:wasmJsBrowserDevelopmentExecutableDistribution` builds to
+  `web/build/dist/wasmJs/developmentExecutable/` (serve it and open it in a browser); it needs
+  Node.js and Yarn installed.

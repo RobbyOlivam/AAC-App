@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.robbyolivam.aac.core.Symbol
 import com.robbyolivam.aac.data.MediaFiles
 import com.robbyolivam.aac.data.SymbolLibrary
-import com.robbyolivam.aac.data.SymbolStyle
+import com.robbyolivam.aac.core.SymbolStyle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

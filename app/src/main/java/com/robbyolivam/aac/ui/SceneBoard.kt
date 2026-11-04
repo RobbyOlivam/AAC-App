@@ -39,7 +39,7 @@ import com.robbyolivam.aac.core.Board
 import com.robbyolivam.aac.core.Cell
 import com.robbyolivam.aac.core.Hotspot
 import com.robbyolivam.aac.data.MediaFiles
-import com.robbyolivam.aac.data.Settings
+import com.robbyolivam.aac.core.Settings
 import com.robbyolivam.aac.ui.theme.OnWordColor
 import com.robbyolivam.aac.ui.theme.wordColor
 

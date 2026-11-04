@@ -16,6 +16,9 @@ kotlin {
     iosX64()
     iosArm64()
     iosSimulatorArm64()
+    // The web app (installable on iPads from Safari).
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+    wasmJs { browser() }
 
     sourceSets {
         commonMain.dependencies {

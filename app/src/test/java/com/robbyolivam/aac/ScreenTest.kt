@@ -47,9 +47,9 @@ import com.robbyolivam.aac.core.addBoard
 import com.robbyolivam.aac.core.addHotspot
 import com.robbyolivam.aac.core.newSceneBoard
 import com.robbyolivam.aac.core.setCell
-import com.robbyolivam.aac.data.ScanMode
-import com.robbyolivam.aac.data.SettingsLock
-import com.robbyolivam.aac.data.ThemeMode
+import com.robbyolivam.aac.core.ScanMode
+import com.robbyolivam.aac.core.SettingsLock
+import com.robbyolivam.aac.core.ThemeMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -134,7 +134,7 @@ class ScreenTest {
 
     @Test
     fun emojiStyleSetting() {
-        launch { app.settings.update { it.copy(symbolStyle = com.robbyolivam.aac.data.SymbolStyle.EMOJI) } }
+        launch { app.settings.update { it.copy(symbolStyle = com.robbyolivam.aac.core.SymbolStyle.EMOJI) } }
         shot("phone_core_emoji_style")
     }
 
@@ -593,7 +593,7 @@ class ScreenTest {
             "Slide to select", "Switch scanning", "Vocabulary level", "Explore", "Copy", "Duplicate page", "crop",
             "Photo scenes", "Usage report", "pause", "Export CSV", "backup", "Open Board Format", "PDF", "Lock to this app",
             "Fire tablet", "Apps from Unknown Sources", "Keyboard & Language", "AAC Talk (dev)", "Restore backup",
-            "TouchChat", "Import boards", "Then opens",
+            "TouchChat", "Import boards", "Then opens", "Add to Home Screen", "Guided Access",
         ).forEach { feature -> assertTrue("manual explains $feature", manual.contains(feature, ignoreCase = true)) }
     }
 
