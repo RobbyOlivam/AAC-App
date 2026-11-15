@@ -127,3 +127,29 @@ jobs:
             web/build/dist/wasmJs/productionExecutable/
             !web/build/dist/wasmJs/productionExecutable/*.map
           if-no-files-found: error
+
+  # Publishes the web app to GitHub Pages (https://robbyolivam.github.io/AAC-App/) from main.
+  # iPads that installed it pick the update up the next time they open it with internet.
+  pages:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: web
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: aac-web
+          path: site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
