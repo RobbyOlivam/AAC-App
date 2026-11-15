@@ -32,19 +32,13 @@ An Android-first AAC (augmentative and alternative communication) app. It works 
 | Sharing | Open Board Format **.obz / .obf** import and export (CoughDrop, Cboard and others), and **print all boards to PDF** as a paper backup |
 | Device | "Lock to this app" (screen pinning) so a child stays in the talker |
 
-## iPad web app (0.12.0)
+## iPad web app (0.13.0)
 
-A first version of the talker for iPads runs in Safari and installs from the Share menu ("Add to Home Screen"): full screen, offline, no App Store or developer account. It shares its logic with the Android app (`core`) and its screens are Compose Multiplatform (`shared-ui`), so the same code can later become the native iPad/iPhone and Android screens.
+The talker runs on iPads in Safari and installs from the Share menu ("Add to Home Screen"): full screen, offline, no App Store or developer account. It is published to GitHub Pages at https://robbyolivam.github.io/AAC-App/ on every merge to main.
 
-| Area | Features |
-|---|---|
-| Talk | The boards with symbols and word colours, message bar (speak, delete, clear), folders, words that open a page, quick strip, Back/Home bar of fixed height |
-| Boards in and out | Import a TouchChat vocabulary (.ce), a backup from Android or another iPad (.zip), or Open Board files; save a backup (same layout as Android's); go back to the previous boards |
-| Voice | The iPad's own voices (speed, pitch, volume, voice age by pitch); recorded sounds from imported boards |
-| Settings | Protected by a hold; voice, speak each word, return home after a folder word, labels, high contrast, theme |
-| Offline | A service worker keeps the app and all 5,300 symbols on the device; boards, settings and pictures live in the browser's private storage |
+Since 0.13.0 it has the Android app's screens and features: editing (button editor, Add a word, move, copy/paste, page options, photo scenes, undo/redo), photos with cropping, the camera, recorded voices, word forms, predictions and the grammar helper, the keyboard and abbreviations, phrases, Find, tone buttons, partner view, sharing, touch access settings, slide to select, preview on first tap, vocabulary levels and Explore, switch scanning with keyboard-type switches, PIN or hold protection, keep screen on, snapshots, the usage log and report, backups and Open Board export, the guide and the tour. Not possible in a browser: the private earbud, true Teen/Kid voices (pitch only), vibration on iPad, PDF printing, lock-screen and Quick Settings features, orientation lock and the emoji symbol style.
 
-Build: `./gradlew :web:wasmJsBrowserDistribution` (needs Node.js and Yarn); CI builds the **aac-web** artifact. Not yet in the web app: editing, word forms, predictions, keyboard, scanning, usage log.
+How it is built: `shared-ui` holds the screens (Compose Multiplatform, started as a copy of the Android app's `ui` package) and a shared data layer; `web` supplies the browser services (IndexedDB storage, Web Speech, canvas for pictures, MediaRecorder, wake lock, share sheet). Build: `./gradlew :web:wasmJsBrowserDistribution` (needs Node.js and Yarn); CI builds and publishes it.
 
 ## Install on your Pixel (no Android Studio needed)
 

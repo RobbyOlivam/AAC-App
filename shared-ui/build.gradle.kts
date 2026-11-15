@@ -20,6 +20,7 @@ kotlin {
             api(compose.material3)
             api(compose.ui)
             implementation(compose.components.resources)
+            implementation(compose.materialIconsExtended)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))

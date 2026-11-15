@@ -54,10 +54,13 @@ tests on the iOS simulator. Everything that decides *what* the app does lives th
 
 ## Order of work
 
-1. Done: settings in `core`; `shared-ui` with the talker screens; the web app.
-2. Grow `shared-ui` to the Android app's features (editing, forms, predictions, keyboard,
-   scanning, usage log), then switch the Android app to it screen by screen.
-3. Add the iOS app (Xcode project hosting the shared UI) and implement `SpeechOutput` and `DeviceLock`.
-4. Install on the iPads through TestFlight. That needs an Apple Developer account and the builds
+1. Done: settings in `core`; the web app.
+2. Done: `shared-ui` has all of the Android app's screens and `AacViewModel`, a shared data
+   layer (`data/Stores.kt`) and platform interfaces for storage, files, pictures, recording and
+   device services (`shared/Platform.kt`).
+3. Switch the Android app to `shared-ui` (an Android `Platform`: files dir, ImageDecoder,
+   MediaRecorder, TextToSpeech), then delete `app/.../ui`.
+4. Add the iOS app (Xcode project hosting the shared UI) and implement `SpeechOutput` and `DeviceLock`.
+5. Install on the iPads through TestFlight. That needs an Apple Developer account and the builds
    are signed on macOS (CI can do this with the signing certificate in repository secrets).
-5. Cross-check: a backup made on Android restores on iPad and the other way round.
+6. Cross-check: a backup made on Android restores on iPad and the other way round.

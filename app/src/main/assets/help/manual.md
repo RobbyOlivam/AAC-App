@@ -123,12 +123,14 @@ The app runs on Amazon Fire tablets (built for the Fire HD 10, 13th generation).
 - **Lock to this app**: if it doesn't lock, turn on Fire Settings → Security & Privacy → **Screen Pinning** first.
 
 ## iPad (web app)
-A version of the talker for iPads and iPhones runs in Safari and installs like an app. It is an early version: talking, folders, the quick strip, voices and importing boards work; editing boards is still Android-only.
+The talker also runs on iPads and iPhones in Safari and installs like an app. It has the same screens and features as the Android app, including editing boards.
 - **Install**: open the app's web address in Safari, tap **Share**, then **Add to Home Screen**. It then opens full screen with its own icon and **works offline**. Updates arrive by themselves the next time it opens with internet.
-- **Bring boards over**: in TouchChat, export the vocabulary and **Save to Files**. In the web app, hold **Settings**, tap **Import boards** and choose the .ce file. A backup made on Android (**Save backup**) imports the same way, and a backup made on the iPad restores on Android.
+- **Bring boards over**: in TouchChat, export the vocabulary and **Save to Files**. In the web app, open Settings → **Import boards** and choose the .ce file. A backup made on Android (**Save backup**) imports the same way, and a backup made on the iPad restores on Android.
 - **Voices**: it uses the iPad's own voices. Better ones can be downloaded in iPad Settings → Accessibility → **Spoken Content** → Voices.
 - **Keep someone in the talker**: use **Guided Access** (iPad Settings → Accessibility → Guided Access; triple-click the top button to start).
-- **Not yet on iPad**: editing buttons, word forms, predictions, the keyboard, switch scanning, the usage log, and the private earbud option. Voice age (Teen, Kid) is approximated with pitch.
+- **Photos and recordings**: the button editor's **Photo**, **Camera** and **Record** use the iPad's photos, camera and microphone (Safari asks the first time).
+- **Keep your boards safe**: on iPad the boards live in the app's own storage. Deleting the app from the Home Screen deletes them, so use **Save backup** now and then.
+- **Not on iPad** (the browser can't do these): the private earbud option, true Teen and Kid voices (the voice is only raised in pitch), vibrate on tap, printing boards to PDF, showing over the lock screen, the Quick Settings tile, choosing the screen orientation (use the iPad's rotation lock) and switching symbols to the device's emoji.
 
 ## Privacy
 - Speech, words and logs stay on the device. The app has no internet access.
