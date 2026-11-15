@@ -16,6 +16,10 @@
   (Compose Multiplatform screens: the web app today, the iPad/iPhone and Android apps as they
   move over), `web` (the installable web app for iPads), `app` (Android). New logic goes in
   `core`; new screens should be written so they can live in `shared-ui`.
+- **Two copies of the screens (for now):** `shared-ui/.../ui/` started as a copy of the Android
+  app's `app/.../ui/` (same package and names), adapted to run anywhere (no Android APIs; platform
+  services come through `shared/Platform.kt`). Until the Android app switches to `shared-ui`, a
+  change to a screen or to `AacViewModel` goes in both copies.
 - **Web app:** keep it offline-first: everything it needs ships with it (symbols, fonts) and
   the service worker (`web/src/wasmJsMain/resources/sw.js`) keeps it on the device. Bump the
   cache name there when cached files change shape.

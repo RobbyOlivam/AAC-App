@@ -76,10 +76,12 @@ window.aac = (() => {
   // ---- Files (open from Files / save to Files) -----------------------------------------------
   const files = {
     // Resolves to the chosen file's name, then its bytes (two properties), or null if cancelled.
-    pick: accept => new Promise(resolve => {
+    // With camera true, iPad offers the camera straight away.
+    pick: (accept, camera) => new Promise(resolve => {
       const input = document.createElement("input");
       input.type = "file";
       if (accept) input.accept = accept;
+      if (camera) input.capture = "environment";
       input.onchange = () => {
         const f = input.files && input.files[0];
         if (!f) { resolve(null); return; }
@@ -105,6 +107,84 @@ window.aac = (() => {
   // ---- The app's own files (symbols), cached for offline use by the service worker -----------
   const fetchBytes = url => fetch(url).then(r => r.ok ? r.arrayBuffer().then(b => new Uint8Array(b)) : null, () => null);
 
+  // ---- Pictures: read, crop and shrink with a canvas (JPEG out) --------------------------------
+  function decodeImage(bytes) {
+    const url = URL.createObjectURL(new Blob([bytes]));
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("not a picture")); };
+      img.src = url;
+    });
+  }
+  const images = {
+    size: bytes => decodeImage(bytes).then(img => img.naturalWidth + "x" + img.naturalHeight, () => ""),
+    // crop: left, top, width, height as fractions (all 0 = whole picture).
+    jpeg: (bytes, maxSize, l, t, w, h) => decodeImage(bytes).then(img => {
+      const iw = img.naturalWidth, ih = img.naturalHeight;
+      const sx = w > 0 ? Math.round(l * iw) : 0, sy = h > 0 ? Math.round(t * ih) : 0;
+      const sw = w > 0 ? Math.max(1, Math.round(w * iw)) : iw, sh = h > 0 ? Math.max(1, Math.round(h * ih)) : ih;
+      const scale = Math.min(1, maxSize / Math.max(sw, sh));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(sw * scale));
+      canvas.height = Math.max(1, Math.round(sh * scale));
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#fff"; // transparent PNGs become white, not black
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+      return new Promise(r => canvas.toBlob(b => r(b), "image/jpeg", 0.88))
+        .then(b => b ? b.arrayBuffer().then(buf => new Uint8Array(buf)) : null);
+    }, () => null),
+  };
+
+  // ---- Recording a button's voice (microphone) -------------------------------------------------
+  let rec = null, chunks = [];
+  const recorder = {
+    start: () => {
+      if (!navigator.mediaDevices || !window.MediaRecorder) return Promise.resolve(false);
+      return navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        chunks = [];
+        rec = new MediaRecorder(stream);
+        rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+        rec.start();
+        return true;
+      }, () => false);
+    },
+    stop: () => new Promise(resolve => {
+      if (!rec) { resolve(null); return; }
+      const r = rec; rec = null;
+      r.onstop = () => {
+        r.stream.getTracks().forEach(t => t.stop());
+        new Blob(chunks, { type: r.mimeType }).arrayBuffer().then(buf => resolve(new Uint8Array(buf)));
+      };
+      r.stop();
+    }),
+    isRecording: () => rec !== null,
+  };
+
+  // ---- Device ----------------------------------------------------------------------------------
+  let wakeLock = null, wantAwake = false;
+  function requestWake() {
+    if (!wantAwake || !navigator.wakeLock) return;
+    navigator.wakeLock.request("screen").then(l => { wakeLock = l; }, () => {});
+  }
+  // The lock is dropped when the app goes to the background; take it again on return.
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") requestWake(); });
+  const device = {
+    utcOffsetMillis: () => -new Date().getTimezoneOffset() * 60000,
+    keepScreenOn: on => {
+      wantAwake = on;
+      if (on) requestWake(); else if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+    },
+    shareText: text => {
+      if (!navigator.share) return false;
+      navigator.share({ text }).catch(() => {});
+      return true;
+    },
+    canVibrate: () => typeof navigator.vibrate === "function",
+    vibrate: () => { if (navigator.vibrate) navigator.vibrate(15); },
+  };
+
   // Bytes cross to Kotlin as Latin-1 strings (fast bulk copies).
   const bytes = {
     toLatin1: u8 => {
@@ -121,7 +201,7 @@ window.aac = (() => {
 
   const isStandalone = () => window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 
-  return { store, speech, sounds, files, fetchBytes, bytes, isStandalone };
+  return { store, speech, sounds, files, images, recorder, device, fetchBytes, bytes, isStandalone };
 })();
 
 // Offline: register the service worker, then ask it to keep the app's code and every symbol.

@@ -2,7 +2,7 @@
 // Pages and code: served from the cache at once, refreshed in the background, so an update
 // shows on the next launch. Symbols: cached once (they don't change).
 "use strict";
-const CACHE = "aac-talk-v1";
+const CACHE = "aac-talk-v2";
 const SHELL = ["./", "index.html", "platform.js", "aac.js", "manifest.webmanifest", "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png", "icons/icon.svg", "symbols/index.tsv"];
 
 self.addEventListener("install", event => {

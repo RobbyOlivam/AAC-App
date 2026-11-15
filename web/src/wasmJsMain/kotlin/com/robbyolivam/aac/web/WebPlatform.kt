@@ -6,7 +6,11 @@ import com.robbyolivam.aac.core.platform.SpeechOutput
 import com.robbyolivam.aac.core.platform.VoiceInfo
 import com.robbyolivam.aac.shared.AppAssets
 import com.robbyolivam.aac.shared.AppStorage
+import com.robbyolivam.aac.shared.CropRect
+import com.robbyolivam.aac.shared.DeviceServices
 import com.robbyolivam.aac.shared.FileExchange
+import com.robbyolivam.aac.shared.ImageTools
+import com.robbyolivam.aac.shared.Recorder
 import kotlinx.coroutines.await
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,7 +26,29 @@ external interface AacJs : JsAny {
     val files: FilesJs
     fun fetchBytes(url: String): Promise<Uint8Array?>
     val bytes: BytesJs
+    val images: ImagesJs
+    val recorder: RecorderJs
+    val device: DeviceJs
     fun isStandalone(): Boolean
+}
+
+external interface ImagesJs : JsAny {
+    fun size(bytes: Uint8Array): Promise<JsString>
+    fun jpeg(bytes: Uint8Array, maxSize: Int, left: Double, top: Double, width: Double, height: Double): Promise<Uint8Array?>
+}
+
+external interface RecorderJs : JsAny {
+    fun start(): Promise<JsBoolean>
+    fun stop(): Promise<Uint8Array?>
+    fun isRecording(): Boolean
+}
+
+external interface DeviceJs : JsAny {
+    fun utcOffsetMillis(): Double
+    fun keepScreenOn(on: Boolean)
+    fun shareText(text: String): Boolean
+    fun canVibrate(): Boolean
+    fun vibrate()
 }
 
 external interface BytesJs : JsAny {
@@ -55,7 +81,7 @@ external interface PickedFile : JsAny {
 }
 
 external interface FilesJs : JsAny {
-    fun pick(accept: String): Promise<PickedFile?>
+    fun pick(accept: String, camera: Boolean): Promise<PickedFile?>
     fun save(name: String, bytes: Uint8Array, mime: String): Promise<JsBoolean>
 }
 
@@ -89,8 +115,8 @@ class WebAssets : AppAssets {
 }
 
 class WebFiles : FileExchange {
-    override suspend fun open(accept: String): Pair<String, ByteArray>? =
-        aac.files.pick(accept).await<PickedFile?>()?.let { it.name to it.bytes.toByteArray() }
+    override suspend fun open(accept: String, camera: Boolean): Pair<String, ByteArray>? =
+        aac.files.pick(accept, camera).await<PickedFile?>()?.let { it.name to it.bytes.toByteArray() }
 
     override suspend fun save(name: String, bytes: ByteArray, mimeType: String): Boolean =
         aac.files.save(name, bytes.toUint8Array(), mimeType).await<JsBoolean>().toBoolean()
@@ -129,4 +155,33 @@ class WebSpeech : SpeechOutput {
     override fun earbudConnected(): Boolean = false
     override fun stop() = aac.speech.stop()
     override fun shutdown() = aac.speech.stop()
+}
+
+class WebImages : ImageTools {
+    override suspend fun size(bytes: ByteArray): Pair<Int, Int>? =
+        aac.images.size(bytes.toUint8Array()).await<JsString>().toString().split('x').takeIf { it.size == 2 }
+            ?.let { (w, h) -> w.toInt() to h.toInt() }
+
+    override suspend fun jpeg(bytes: ByteArray, maxSize: Int, crop: CropRect?): ByteArray? =
+        aac.images.jpeg(
+            bytes.toUint8Array(), maxSize,
+            crop?.left?.toDouble() ?: 0.0, crop?.top?.toDouble() ?: 0.0, crop?.width?.toDouble() ?: 0.0, crop?.height?.toDouble() ?: 0.0,
+        ).await<Uint8Array?>()?.toByteArray()
+}
+
+class WebRecorder : Recorder {
+    override suspend fun start(): Boolean = aac.recorder.start().await<JsBoolean>().toBoolean()
+    override suspend fun stop(): ByteArray? = aac.recorder.stop().await<Uint8Array?>()?.toByteArray()
+    override val isRecording: Boolean get() = aac.recorder.isRecording()
+}
+
+@JsFun("() => Date.now()")
+private external fun dateNow(): Double
+
+class WebDevice : DeviceServices {
+    override fun nowMillis(): Long = dateNow().toLong()
+    override fun utcOffsetMillis(): Long = aac.device.utcOffsetMillis().toLong()
+    override fun keepScreenOn(on: Boolean) = aac.device.keepScreenOn(on)
+    override fun shareText(text: String): Boolean = aac.device.shareText(text)
+    override fun vibrate() = aac.device.vibrate()
 }
